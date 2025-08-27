@@ -5,7 +5,7 @@ import { createReview, updateReview } from "../api/reviews";
 import { getPlatforms, getMediators, getStatuses } from "../api/lookups";
 
 export default function ReviewForm({ review, onSuccess }) {
-  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, watch, formState: { errors } } = useForm({
     defaultValues: review || {
       orderId: "",
       orderLink: "",
@@ -58,7 +58,8 @@ export default function ReviewForm({ review, onSuccess }) {
         await createReview(data);
       }
       onSuccess?.();
-    } catch (e) {
+    } catch (err) {
+      console.error("Error saving review", err);
       alert("Error saving review");
     }
   };

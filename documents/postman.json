@@ -1,0 +1,171 @@
+{
+  "info": {
+    "name": "Review Tracker API",
+    "_postman_id": "d3c6e0a4-4cbb-46b7-8c59-123456789abc",
+    "description": "Postman collection for Review Tracker System (Spring Boot + MongoDB)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Create Review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/reviews", "host": ["localhost"], "port": "8080", "path": ["api", "reviews"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"ORD001\",\n  \"orderLink\": \"http://amazon.in/order/ORD001\",\n  \"productName\": \"Wireless Mouse\",\n  \"statusId\": \"ORDERED\",\n  \"platformId\": \"AMAZON\",\n  \"mediatorId\": \"MED1\",\n  \"amount\": 1200,\n  \"less\": 200,\n  \"orderedDate\": \"2025-08-01\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Review by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/api/reviews/{{reviewId}}", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "{{reviewId}}"] }
+          }
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/reviews/{{reviewId}}", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "{{reviewId}}"] },
+            "body": { "mode": "raw", "raw": "{ \"productName\": \"Updated Mouse\" }" }
+          }
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "http://localhost:8080/api/reviews/{{reviewId}}", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "{{reviewId}}"] }
+          }
+        },
+        {
+          "name": "Search Reviews",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/reviews/search?page=0&size=5", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "search"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "5" }] },
+            "body": { "mode": "raw", "raw": "{ \"platformId\": \"AMAZON\" }" }
+          }
+        },
+        {
+          "name": "Clone Review",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:8080/api/reviews/{{reviewId}}/clone", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "{{reviewId}}", "clone"] }
+          }
+        },
+        {
+          "name": "Copy Fields Between Reviews",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/reviews/{{srcId}}/copy/{{targetId}}", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "{{srcId}}", "copy", "{{targetId}}"] },
+            "body": { "mode": "raw", "raw": "[\"productName\",\"amount\"]" }
+          }
+        },
+        {
+          "name": "Bulk Update",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/reviews/bulk-update", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "bulk-update"] },
+            "body": { "mode": "raw", "raw": "{ \"ids\": [\"{{reviewId}}\"], \"updates\": { \"statusId\": \"SUBMITTED\" } }" }
+          }
+        },
+        {
+          "name": "Bulk Delete",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/reviews/bulk-delete", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "bulk-delete"] },
+            "body": { "mode": "raw", "raw": "[\"{{reviewId}}\"]" }
+          }
+        },
+        {
+          "name": "Get Review History",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/api/reviews/{{reviewId}}/history", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "{{reviewId}}", "history"] }
+          }
+        },
+        {
+          "name": "Export CSV",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/api/reviews/export", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "export"] }
+          }
+        },
+        {
+          "name": "Import CSV",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:8080/api/reviews/import", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "import"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "/path/to/reviews.csv" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/api/reviews/dashboard", "host": ["localhost"], "port": "8080", "path": ["api", "reviews", "dashboard"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lookups",
+      "item": [
+        {
+          "name": "Get Platforms",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8080/api/lookups/platforms", "host": ["localhost"], "port": "8080", "path": ["api", "lookups", "platforms"] } }
+        },
+        {
+          "name": "Add Platform",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/lookups/platforms", "host": ["localhost"], "port": "8080", "path": ["api", "lookups", "platforms"] },
+            "body": { "mode": "raw", "raw": "{ \"name\": \"Amazon\" }" }
+          }
+        },
+        {
+          "name": "Get Statuses",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8080/api/lookups/statuses", "host": ["localhost"], "port": "8080", "path": ["api", "lookups", "statuses"] } }
+        },
+        {
+          "name": "Add Status",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/lookups/statuses", "host": ["localhost"], "port": "8080", "path": ["api", "lookups", "statuses"] },
+            "body": { "mode": "raw", "raw": "{ \"name\": \"ORDERED\" }" }
+          }
+        },
+        {
+          "name": "Get Mediators",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8080/api/lookups/mediators", "host": ["localhost"], "port": "8080", "path": ["api", "lookups", "mediators"] } }
+        },
+        {
+          "name": "Add Mediator",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "http://localhost:8080/api/lookups/mediators", "host": ["localhost"], "port": "8080", "path": ["api", "lookups", "mediators"] },
+            "body": { "mode": "raw", "raw": "{ \"name\": \"John - WhatsApp 98765\" }" }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: review-tracker-backend
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/reviewtracker
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false

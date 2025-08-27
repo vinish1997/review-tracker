@@ -37,6 +37,20 @@ public class ReviewController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+    
+
+    @GetMapping
+    public List<Review> all(@RequestParam(required = false) String search) {
+        if (search == null || search.isBlank()) {
+            return reviewService.getAllReviews();
+        }
+        ReviewSearchCriteria criteria = ReviewSearchCriteria.builder()
+                .productNameContains(search)
+                .build();
+        return reviewService.searchReviews(criteria, PageRequest.of(0, Integer.MAX_VALUE))
+                .getContent();
+    }
+
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id) {

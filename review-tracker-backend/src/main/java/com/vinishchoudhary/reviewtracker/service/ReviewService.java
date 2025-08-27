@@ -22,6 +22,10 @@ public class ReviewService {
     private final ReviewRepository reviewRepo;
     private final ReviewHistoryService historyService;
 
+    public List<Review> getAllReviews() {
+        return reviewRepo.findAll();
+    }
+
     // ---------- CRUD ----------
     public Review createReview(Review r) {
         if (r.getRefundAmountRupees() == null && r.getAmountRupees() != null && r.getLessRupees() != null) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getReviews, deleteReview } from "../api/reviews";
 import { useNavigate } from "react-router-dom";
 
@@ -8,11 +8,7 @@ export default function ReviewTable() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadReviews();
-  }, []);
-
-  const loadReviews = async () => {
+  const loadReviews = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getReviews({ search });
@@ -21,7 +17,11 @@ export default function ReviewTable() {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  };
+  }, [search]);
+
+  useEffect(() => {
+    loadReviews();
+  }, [loadReviews]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this review?")) return;

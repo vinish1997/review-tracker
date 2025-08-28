@@ -69,9 +69,16 @@ export default function ReviewForm({ review, onSuccess }) {
       {/* Order ID */}
       <div>
         <label className="block font-medium">Order ID</label>
-        <input {...register("orderId", { required: true, pattern: /^[a-zA-Z0-9]+$/ })}
-               className="border p-2 w-full rounded"/>
-        {errors.orderId && <span className="text-red-500 text-sm">Order ID is required and must be alphanumeric.</span>}
+        <input
+          {...register("orderId", {
+            required: true,
+            validate: (v) => (v ?? "").trim().length > 0 || "Order ID cannot be blank"
+          })}
+          className="border p-2 w-full rounded"
+        />
+        {errors.orderId && (
+          <span className="text-red-500 text-sm">{errors.orderId.message || "Order ID is required."}</span>
+        )}
       </div>
 
       {/* Order Link */}

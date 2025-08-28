@@ -19,7 +19,7 @@ function App() {
         <main className="flex-1 p-6 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/reviews" element={<Reviews />} />
+            <Route path="/reviews/*" element={<Reviews />} />
             <Route path="/lookups" element={<Lookups />} />
           </Routes>
         </main>

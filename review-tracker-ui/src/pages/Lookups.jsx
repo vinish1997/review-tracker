@@ -12,6 +12,7 @@ import {
 } from "../api/lookups";
 
 export default function Lookups() {
+  const [tab, setTab] = useState("platforms"); // platforms | statuses | mediators
   // Platforms state
   const [pf, setPf] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
   const [pfName, setPfName] = useState("");
@@ -98,6 +99,24 @@ export default function Lookups() {
     <div>
       <h2 className="text-2xl font-bold mb-4">Manage Lookups</h2>
 
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b">
+        {[
+          { key: "platforms", label: "Platforms" },
+          { key: "statuses", label: "Statuses" },
+          { key: "mediators", label: "Mediators" },
+        ].map(t => (
+          <button
+            key={t.key}
+            className={`px-4 py-2 -mb-px border-b-2 ${tab===t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-600'}`}
+            onClick={()=> setTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'platforms' && (
       <section className="mb-8">
         <h3 className="text-xl font-semibold mb-2">Platforms</h3>
         <form onSubmit={addPlatform} className="flex gap-3 items-end mb-4">
@@ -117,9 +136,13 @@ export default function Lookups() {
           page={pf.page} size={pf.size} totalPages={pf.totalPages} totalElements={pf.totalElements}
           setPage={(p)=> loadPlatforms({ page: p })}
           setSize={(s)=> loadPlatforms({ size: s, page: 0 })}
+          sort={pf.sort} dir={pf.dir}
+          onSort={(field, dir)=> loadPlatforms({ sort: field, dir, page: 0 })}
         />
       </section>
+      )}
 
+      {tab === 'statuses' && (
       <section className="mb-8">
         <h3 className="text-xl font-semibold mb-2">Statuses</h3>
         <form onSubmit={addStatus} className="flex gap-3 items-end mb-4">
@@ -139,9 +162,13 @@ export default function Lookups() {
           page={st.page} size={st.size} totalPages={st.totalPages} totalElements={st.totalElements}
           setPage={(p)=> loadStatuses({ page: p })}
           setSize={(s)=> loadStatuses({ size: s, page: 0 })}
+          sort={st.sort} dir={st.dir}
+          onSort={(field, dir)=> loadStatuses({ sort: field, dir, page: 0 })}
         />
       </section>
+      )}
 
+      {tab === 'mediators' && (
       <section className="mb-8">
         <h3 className="text-xl font-semibold mb-2">Mediators</h3>
         <form onSubmit={addMediator} className="flex gap-3 items-end mb-4">
@@ -160,18 +187,28 @@ export default function Lookups() {
           columns={[{key:'name', label:'Name'}, {key:'phone', label:'Phone'}]}
           editing={mdEditing}
           onEditChange={setMdEditing}
-          onSave={async (row)=> { await saveMediator(row); setMdEditing({}); await loadMediators(); }}
+          onSave={async (row)=> {
+            // E.164-ish validation (allow optional +, 8-15 digits)
+            if (row.phone && !/^\+?\d{8,15}$/.test(row.phone)) {
+              alert('Please enter a valid phone number (8-15 digits, optionally starting with +)');
+              return;
+            }
+            await saveMediator(row); setMdEditing({}); await loadMediators();
+          }}
           onDelete={async (id)=> { await deleteMediator(id); await loadMediators(); }}
           page={md.page} size={md.size} totalPages={md.totalPages} totalElements={md.totalElements}
           setPage={(p)=> loadMediators({ page: p })}
           setSize={(s)=> loadMediators({ size: s, page: 0 })}
+          sort={md.sort} dir={md.dir}
+          onSort={(field, dir)=> loadMediators({ sort: field, dir, page: 0 })}
         />
       </section>
+      )}
     </div>
   );
 }
 
-function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, page, size, totalPages, totalElements, setPage, setSize }) {
+function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, page, size, totalPages, totalElements, setPage, setSize, sort, dir, onSort }) {
   const [localEditing, setLocalEditing] = useState(editing || {});
   useEffect(() => { setLocalEditing(editing || {}); }, [editing]);
 
@@ -192,7 +229,19 @@ function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, 
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-200 text-left">
-            {columns.map(c => <th key={c.key} className="p-2 border">{c.label}</th>)}
+            {columns.map(c => (
+              <th
+                key={c.key}
+                className="p-2 border cursor-pointer select-none"
+                onClick={()=> {
+                  const nextDir = sort === c.key && (dir||'ASC').toUpperCase()==='ASC' ? 'DESC' : 'ASC';
+                  onSort?.(c.key, nextDir);
+                }}
+                title="Click to sort"
+              >
+                {c.label}{sort===c.key ? ( (dir||'ASC').toUpperCase()==='ASC' ? ' ▲' : ' ▼') : ''}
+              </th>
+            ))}
             <th className="p-2 border">Actions</th>
           </tr>
         </thead>
@@ -219,7 +268,7 @@ function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, 
                   ) : (
                     <>
                       <button className="bg-yellow-500 text-white px-3 py-1 rounded" onClick={()=> startEdit(row)}>Edit</button>
-                      <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={()=> onDelete(row.id)}>Delete</button>
+                      <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={()=> { if (window.confirm('Delete this item?')) onDelete(row.id); }}>Delete</button>
                     </>
                   )}
                 </td>

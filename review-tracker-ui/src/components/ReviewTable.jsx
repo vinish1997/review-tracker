@@ -199,7 +199,7 @@ export default function ReviewTable() {
               <td className="p-2">
                 {r.mediatorId ? (
                   <a
-                    href={`https://wa.me/${mediatorMap[r.mediatorId]?.phone || ""}?text=${encodeURIComponent(`Hi ${mediatorMap[r.mediatorId]?.name || ""}, regarding order ${r.orderId}`)}`}
+                    href={`https://wa.me/${(mediatorMap[r.mediatorId]?.phone || "").replace(/^\+/, '')}?text=${encodeURIComponent(`Hi ${mediatorMap[r.mediatorId]?.name || ""}, regarding order ${r.orderId}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-green-700 hover:underline"

@@ -17,18 +17,24 @@ export default function Lookups() {
   const [tab, setTab] = useState("platforms"); // platforms | statuses | mediators
   // Platforms state
   const [pf, setPf] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
+  const [pfInline, setPfInline] = useState(false);
   const [pfName, setPfName] = useState("");
+  const [pfErr, setPfErr] = useState("");
   const [pfEditing, setPfEditing] = useState({}); // id -> { name }
 
   // Statuses state
   const [st, setSt] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
+  const [stInline, setStInline] = useState(false);
   const [stName, setStName] = useState("");
+  const [stErr, setStErr] = useState("");
   const [stEditing, setStEditing] = useState({});
 
   // Mediators state
   const [md, setMd] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
   const [mdName, setMdName] = useState("");
   const [mdPhone, setMdPhone] = useState("");
+  const [mdErrName, setMdErrName] = useState("");
+  const [mdErrPhone, setMdErrPhone] = useState("");
   const [mdEditing, setMdEditing] = useState({}); // id -> { name, phone }
 
   const toast = useToast();
@@ -79,20 +85,23 @@ export default function Lookups() {
 
   const addPlatform = async (e) => {
     e.preventDefault();
-    if (!pfName.trim()) return;
-    try { await savePlatform({ name: pfName }); setPfName(""); await loadPlatforms(); toast.show('Platform saved','success'); }
+    if (!pfName.trim()) { setPfErr('Name is required'); return; }
+    try { await savePlatform({ name: pfName }); setPfName(""); setPfErr(""); await loadPlatforms(); toast.show('Platform saved','success'); }
     catch (e) { console.error(e); toast.show('Failed to save platform','error'); }
   };
   const addStatus = async (e) => {
     e.preventDefault();
-    if (!stName.trim()) return;
-    try { await saveStatus({ name: stName }); setStName(""); await loadStatuses(); toast.show('Status saved','success'); }
+    if (!stName.trim()) { setStErr('Name is required'); return; }
+    try { await saveStatus({ name: stName }); setStName(""); setStErr(""); await loadStatuses(); toast.show('Status saved','success'); }
     catch (e) { console.error(e); toast.show('Failed to save status','error'); }
   };
   const addMediator = async (e) => {
     e.preventDefault();
-    if (!mdName.trim()) return;
-    if (mdPhone && !/^\+?\d{8,15}$/.test(mdPhone)) { toast.show('Enter valid phone (8-15 digits, optional +)','error'); return; }
+    let ok = true;
+    setMdErrName(""); setMdErrPhone("");
+    if (!mdName.trim()) { setMdErrName('Name is required'); ok = false; }
+    if (mdPhone && !/^\+?\d{8,15}$/.test(mdPhone)) { setMdErrPhone('Enter valid phone (8-15 digits, optional +)'); ok = false; }
+    if (!ok) return;
     try { await saveMediator({ name: mdName, phone: mdPhone }); setMdName(""); setMdPhone(""); await loadMediators(); toast.show('Mediator saved','success'); }
     catch (e) { console.error(e); toast.show('Failed to save mediator','error'); }
   };
@@ -126,19 +135,24 @@ export default function Lookups() {
       {tab === 'platforms' && (
       <section className="mb-8">
         <h3 className="text-xl font-semibold mb-2">Platforms</h3>
-        <form onSubmit={addPlatform} className="flex gap-3 items-end mb-4">
+        <form onSubmit={addPlatform} className="flex gap-3 items-end mb-2">
           <div>
             <label className="block text-sm font-medium">Name</label>
             <input value={pfName} onChange={(e)=>setPfName(e.target.value)} className="border p-2 rounded" placeholder="Platform name" />
           </div>
           <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
         </form>
+        {pfErr && <div className="text-red-600 text-sm mb-4">{pfErr}</div>}
+        <div className="flex items-center gap-2 mb-2">
+          <input id="pfInline" type="checkbox" checked={pfInline} onChange={(e)=> setPfInline(e.target.checked)} />
+          <label htmlFor="pfInline">Use inline editing</label>
+        </div>
         <LookupTable
           items={pf.items}
           columns={[{key:'name', label:'Name'}]}
           editing={pfEditing}
           onEditChange={setPfEditing}
-          modalEdit
+          modalEdit={!pfInline}
           onEditRow={(row)=> setPfModal({ ...row })}
           onSave={async (row)=> { await savePlatform(row); setPfEditing({}); await loadPlatforms(); toast.show('Platform saved','success'); }}
           onDelete={(id)=> setDelModal({ type:'platform', id, name: (pf.items.find(x=>x.id===id)?.name)||'' })}
@@ -154,19 +168,24 @@ export default function Lookups() {
       {tab === 'statuses' && (
       <section className="mb-8">
         <h3 className="text-xl font-semibold mb-2">Statuses</h3>
-        <form onSubmit={addStatus} className="flex gap-3 items-end mb-4">
+        <form onSubmit={addStatus} className="flex gap-3 items-end mb-2">
           <div>
             <label className="block text-sm font-medium">Name</label>
             <input value={stName} onChange={(e)=>setStName(e.target.value)} className="border p-2 rounded" placeholder="Status name" />
           </div>
           <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
         </form>
+        {stErr && <div className="text-red-600 text-sm mb-4">{stErr}</div>}
+        <div className="flex items-center gap-2 mb-2">
+          <input id="stInline" type="checkbox" checked={stInline} onChange={(e)=> setStInline(e.target.checked)} />
+          <label htmlFor="stInline">Use inline editing</label>
+        </div>
         <LookupTable
           items={st.items}
           columns={[{key:'name', label:'Name'}]}
           editing={stEditing}
           onEditChange={setStEditing}
-          modalEdit
+          modalEdit={!stInline}
           onEditRow={(row)=> setStModal({ ...row })}
           onSave={async (row)=> { await saveStatus(row); setStEditing({}); await loadStatuses(); toast.show('Status saved','success'); }}
           onDelete={(id)=> setDelModal({ type:'status', id, name: (st.items.find(x=>x.id===id)?.name)||'' })}
@@ -182,14 +201,16 @@ export default function Lookups() {
       {tab === 'mediators' && (
       <section className="mb-8">
         <h3 className="text-xl font-semibold mb-2">Mediators</h3>
-        <form onSubmit={addMediator} className="flex gap-3 items-end mb-4">
+        <form onSubmit={addMediator} className="flex gap-3 items-end mb-2">
           <div>
             <label className="block text-sm font-medium">Name</label>
             <input value={mdName} onChange={(e)=>setMdName(e.target.value)} className="border p-2 rounded" placeholder="Mediator name" />
+            {mdErrName && <div className="text-red-600 text-sm">{mdErrName}</div>}
           </div>
           <div>
             <label className="block text-sm font-medium">Phone</label>
             <input value={mdPhone} onChange={(e)=>setMdPhone(e.target.value)} className="border p-2 rounded" placeholder="e.g. 919876543210" />
+            {mdErrPhone && <div className="text-red-600 text-sm">{mdErrPhone}</div>}
           </div>
           <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
         </form>

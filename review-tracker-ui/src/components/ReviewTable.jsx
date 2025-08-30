@@ -182,14 +182,25 @@ export default function ReviewTable() {
       {/* Table */}
       <table className="w-full border-collapse">
         <thead>
-          <tr className="bg-gray-200 text-left">
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("orderId")}>Order ID</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("productName")}>Product</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("platformName")}>Platform</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("statusName")}>Status</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("mediatorName")}>Mediator</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("amountRupees")}>Amount</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("refundAmountRupees")}>Refund</th>
+          <tr className="bg-gray-200 text-left select-none">
+            {[
+              { key: 'orderId', label: 'Order ID' },
+              { key: 'productName', label: 'Product' },
+              { key: 'platformName', label: 'Platform' },
+              { key: 'statusName', label: 'Status' },
+              { key: 'mediatorName', label: 'Mediator' },
+              { key: 'amountRupees', label: 'Amount' },
+              { key: 'refundAmountRupees', label: 'Refund' },
+            ].map(col => (
+              <th
+                key={col.key}
+                className="p-2 border cursor-pointer"
+                onClick={()=> toggleSort(col.key)}
+                title="Click to sort"
+              >
+                {col.label}{sortField===col.key ? (sortDir==='asc' ? ' ▲' : ' ▼') : ''}
+              </th>
+            ))}
             <th className="p-2 border">Actions</th>
           </tr>
         </thead>

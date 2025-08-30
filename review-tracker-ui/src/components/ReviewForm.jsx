@@ -2,9 +2,11 @@ import { useForm, Controller } from "react-hook-form";
 import DatePicker from "react-datepicker";
 import { useEffect, useState } from "react";
 import { createReview, updateReview } from "../api/reviews";
+import { useToast } from "./ToastProvider";
 import { getPlatforms, getMediators, getStatuses } from "../api/lookups";
 
 export default function ReviewForm({ review, onSuccess }) {
+  const toast = useToast();
   const { register, handleSubmit, control, watch, formState: { errors } } = useForm({
     defaultValues: review || {
       orderId: "",
@@ -57,13 +59,15 @@ export default function ReviewForm({ review, onSuccess }) {
     try {
       if (review) {
         await updateReview(review.id, data);
+        toast.show("Review updated", "success");
       } else {
         await createReview(data);
+        toast.show("Review created", "success");
       }
       onSuccess?.();
     } catch (err) {
       console.error("Error saving review", err);
-      alert("Error saving review");
+      toast.show("Error saving review", "error");
     }
   };
 

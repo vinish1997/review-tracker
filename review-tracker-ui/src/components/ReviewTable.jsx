@@ -21,6 +21,11 @@ export default function ReviewTable() {
   // Sorting
   const [sortField, setSortField] = useState("orderedDate");
   const [sortDir, setSortDir] = useState("desc"); // 'asc' | 'desc'
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [quickMode, setQuickMode] = useState("both"); // both | product | order
 
   const platformMap = useMemo(() => Object.fromEntries(platforms.map(p => [p.id, p.name])), [platforms]);
   const statusMap = useMemo(() => Object.fromEntries(statuses.map(s => [s.id, s.name])), [statuses]);
@@ -30,16 +35,17 @@ export default function ReviewTable() {
   const loadReviews = useCallback(async () => {
     setLoading(true);
     try {
+      const criteria = {
+        platformId: fPlatformId || undefined,
+        statusId: fStatusId || undefined,
+        mediatorId: fMediatorId || undefined,
+        productNameContains: (fProductName || ((quickMode === "both" || quickMode === "product") ? search : "")) || undefined,
+        orderIdContains: (fOrderId || ((quickMode === "both" || quickMode === "order") ? search : "")) || undefined,
+      };
       const [res, pRes, sRes, mRes] = await Promise.all([
-        searchReviews({
-          platformId: fPlatformId || undefined,
-          statusId: fStatusId || undefined,
-          mediatorId: fMediatorId || undefined,
-          productNameContains: (fProductName || search) || undefined,
-          orderIdContains: (fOrderId || search) || undefined,
-        }, {
-          page: 0,
-          size: 1000,
+        searchReviews(criteria, {
+          page,
+          size,
           sort: sortField,
           dir: sortDir.toUpperCase(),
         }),
@@ -47,8 +53,10 @@ export default function ReviewTable() {
         getStatuses(),
         getMediators(),
       ]);
-      const page = res.data;
-      setReviews(page.content || []);
+      const pr = res.data;
+      setReviews(pr.content || []);
+      setTotalPages(pr.totalPages ?? 0);
+      setTotalElements(pr.totalElements ?? 0);
       setPlatforms(pRes.data);
       setStatuses(sRes.data);
       setMediators(mRes.data);
@@ -56,7 +64,7 @@ export default function ReviewTable() {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  }, [search, fPlatformId, fStatusId, fMediatorId, fProductName, fOrderId, sortField, sortDir]);
+  }, [search, fPlatformId, fStatusId, fMediatorId, fProductName, fOrderId, sortField, sortDir, page, size, quickMode]);
 
   useEffect(() => {
     loadReviews();
@@ -81,6 +89,7 @@ export default function ReviewTable() {
       setSortField(field);
       setSortDir("asc");
     }
+    setPage(0);
   };
 
   if (loading) return <p>Loading...</p>;
@@ -99,6 +108,14 @@ export default function ReviewTable() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Quick Search In</label>
+            <select className="border p-2 rounded" value={quickMode} onChange={(e)=> { setQuickMode(e.target.value); setPage(0);} }>
+              <option value="both">Product + Order ID</option>
+              <option value="product">Product</option>
+              <option value="order">Order ID</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium">Platform</label>
@@ -133,6 +150,20 @@ export default function ReviewTable() {
             <button onClick={loadReviews} className="bg-blue-500 text-white px-4 py-2 rounded self-end">Search</button>
             <button onClick={() => navigate("/reviews/new")} className="bg-green-500 text-white px-4 py-2 rounded self-end">+ Add Review</button>
           </div>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mb-3 text-sm text-gray-700">
+        <div>
+          Showing page {page + 1} of {Math.max(totalPages, 1)} ({totalElements} items)
+        </div>
+        <div className="space-x-2">
+          <button disabled={page <= 0} onClick={() => setPage((p)=>Math.max(0,p-1))} className="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+          <button disabled={page >= totalPages - 1} onClick={() => setPage((p)=>Math.min(totalPages-1, p+1))} className="px-3 py-1 border rounded disabled:opacity-50">Next</button>
+          <select value={size} onChange={(e)=> { setSize(Number(e.target.value)); setPage(0);} } className="ml-2 border p-1 rounded">
+            {[10,20,50,100].map(n => <option key={n} value={n}>{n}/page</option>)}
+          </select>
         </div>
       </div>
 

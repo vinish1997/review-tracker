@@ -10,6 +10,8 @@ import {
   deleteStatus,
   deleteMediator,
 } from "../api/lookups";
+import Modal from "../components/Modal";
+import { useToast } from "../components/ToastProvider";
 
 export default function Lookups() {
   const [tab, setTab] = useState("platforms"); // platforms | statuses | mediators
@@ -28,6 +30,8 @@ export default function Lookups() {
   const [mdName, setMdName] = useState("");
   const [mdPhone, setMdPhone] = useState("");
   const [mdEditing, setMdEditing] = useState({}); // id -> { name, phone }
+
+  const toast = useToast();
 
   const loadPlatforms = async (overrides = {}) => {
     const params = { page: pf.page, size: pf.size, sort: pf.sort, dir: pf.dir, ...overrides };
@@ -76,24 +80,27 @@ export default function Lookups() {
   const addPlatform = async (e) => {
     e.preventDefault();
     if (!pfName.trim()) return;
-    await savePlatform({ name: pfName });
-    setPfName("");
-    await loadPlatforms();
+    try { await savePlatform({ name: pfName }); setPfName(""); await loadPlatforms(); toast.show('Platform saved','success'); }
+    catch (e) { console.error(e); toast.show('Failed to save platform','error'); }
   };
   const addStatus = async (e) => {
     e.preventDefault();
     if (!stName.trim()) return;
-    await saveStatus({ name: stName });
-    setStName("");
-    await loadStatuses();
+    try { await saveStatus({ name: stName }); setStName(""); await loadStatuses(); toast.show('Status saved','success'); }
+    catch (e) { console.error(e); toast.show('Failed to save status','error'); }
   };
   const addMediator = async (e) => {
     e.preventDefault();
     if (!mdName.trim()) return;
-    await saveMediator({ name: mdName, phone: mdPhone });
-    setMdName(""); setMdPhone("");
-    await loadMediators();
+    if (mdPhone && !/^\+?\d{8,15}$/.test(mdPhone)) { toast.show('Enter valid phone (8-15 digits, optional +)','error'); return; }
+    try { await saveMediator({ name: mdName, phone: mdPhone }); setMdName(""); setMdPhone(""); await loadMediators(); toast.show('Mediator saved','success'); }
+    catch (e) { console.error(e); toast.show('Failed to save mediator','error'); }
   };
+
+  // Modal edit/delete for Platforms & Statuses
+  const [pfModal, setPfModal] = useState(null); // {id,name}
+  const [stModal, setStModal] = useState(null); // {id,name}
+  const [delModal, setDelModal] = useState(null); // {type,id,name}
 
   return (
     <div>
@@ -131,8 +138,10 @@ export default function Lookups() {
           columns={[{key:'name', label:'Name'}]}
           editing={pfEditing}
           onEditChange={setPfEditing}
-          onSave={async (row)=> { await savePlatform(row); setPfEditing({}); await loadPlatforms(); }}
-          onDelete={async (id)=> { await deletePlatform(id); await loadPlatforms(); }}
+          modalEdit
+          onEditRow={(row)=> setPfModal({ ...row })}
+          onSave={async (row)=> { await savePlatform(row); setPfEditing({}); await loadPlatforms(); toast.show('Platform saved','success'); }}
+          onDelete={(id)=> setDelModal({ type:'platform', id, name: (pf.items.find(x=>x.id===id)?.name)||'' })}
           page={pf.page} size={pf.size} totalPages={pf.totalPages} totalElements={pf.totalElements}
           setPage={(p)=> loadPlatforms({ page: p })}
           setSize={(s)=> loadPlatforms({ size: s, page: 0 })}
@@ -157,8 +166,10 @@ export default function Lookups() {
           columns={[{key:'name', label:'Name'}]}
           editing={stEditing}
           onEditChange={setStEditing}
-          onSave={async (row)=> { await saveStatus(row); setStEditing({}); await loadStatuses(); }}
-          onDelete={async (id)=> { await deleteStatus(id); await loadStatuses(); }}
+          modalEdit
+          onEditRow={(row)=> setStModal({ ...row })}
+          onSave={async (row)=> { await saveStatus(row); setStEditing({}); await loadStatuses(); toast.show('Status saved','success'); }}
+          onDelete={(id)=> setDelModal({ type:'status', id, name: (st.items.find(x=>x.id===id)?.name)||'' })}
           page={st.page} size={st.size} totalPages={st.totalPages} totalElements={st.totalElements}
           setPage={(p)=> loadStatuses({ page: p })}
           setSize={(s)=> loadStatuses({ size: s, page: 0 })}
@@ -193,9 +204,9 @@ export default function Lookups() {
               alert('Please enter a valid phone number (8-15 digits, optionally starting with +)');
               return;
             }
-            await saveMediator(row); setMdEditing({}); await loadMediators();
+            await saveMediator(row); setMdEditing({}); await loadMediators(); toast.show('Mediator saved','success');
           }}
-          onDelete={async (id)=> { await deleteMediator(id); await loadMediators(); }}
+          onDelete={(id)=> setDelModal({ type:'mediator', id, name: (md.items.find(x=>x.id===id)?.name)||'' })}
           page={md.page} size={md.size} totalPages={md.totalPages} totalElements={md.totalElements}
           setPage={(p)=> loadMediators({ page: p })}
           setSize={(s)=> loadMediators({ size: s, page: 0 })}
@@ -204,11 +215,51 @@ export default function Lookups() {
         />
       </section>
       )}
+
+      {/* Edit Modals */}
+      <Modal open={!!pfModal} title="Edit Platform" onClose={()=> setPfModal(null)}>
+        <form onSubmit={async (e)=> { e.preventDefault(); if (!pfModal.name?.trim()) return; try { await savePlatform(pfModal); setPfModal(null); await loadPlatforms(); toast.show('Platform saved','success'); } catch(e){ console.error(e); toast.show('Failed to save platform','error'); } }}>
+          <label className="block text-sm font-medium mb-1">Name</label>
+          <input className="border p-2 rounded w-full" value={pfModal?.name || ''} onChange={(e)=> setPfModal({ ...(pfModal||{}), name: e.target.value })} />
+          <div className="flex justify-end gap-2 mt-4">
+            <button type="button" className="px-3 py-1 border rounded" onClick={()=> setPfModal(null)}>Cancel</button>
+            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded">Save</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!stModal} title="Edit Status" onClose={()=> setStModal(null)}>
+        <form onSubmit={async (e)=> { e.preventDefault(); if (!stModal.name?.trim()) return; try { await saveStatus(stModal); setStModal(null); await loadStatuses(); toast.show('Status saved','success'); } catch(e){ console.error(e); toast.show('Failed to save status','error'); } }}>
+          <label className="block text-sm font-medium mb-1">Name</label>
+          <input className="border p-2 rounded w-full" value={stModal?.name || ''} onChange={(e)=> setStModal({ ...(stModal||{}), name: e.target.value })} />
+          <div className="flex justify-end gap-2 mt-4">
+            <button type="button" className="px-3 py-1 border rounded" onClick={()=> setStModal(null)}>Cancel</button>
+            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded">Save</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!delModal} title="Confirm Delete" onClose={()=> setDelModal(null)}>
+        <p className="mb-4">Are you sure you want to delete {delModal?.type} <span className="font-semibold">{delModal?.name}</span>?</p>
+        <div className="flex justify-end gap-2">
+          <button className="px-3 py-1 border rounded" onClick={()=> setDelModal(null)}>Cancel</button>
+          <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={async ()=> {
+            try {
+              if (delModal?.type==='platform') await deletePlatform(delModal.id);
+              if (delModal?.type==='status') await deleteStatus(delModal.id);
+              if (delModal?.type==='mediator') await deleteMediator(delModal.id);
+              setDelModal(null);
+              await Promise.all([loadPlatforms(), loadStatuses(), loadMediators()]);
+              toast.show('Deleted','success');
+            } catch(e) { console.error(e); toast.show('Delete failed','error'); }
+          }}>Delete</button>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, page, size, totalPages, totalElements, setPage, setSize, sort, dir, onSort }) {
+function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, page, size, totalPages, totalElements, setPage, setSize, sort, dir, onSort, modalEdit, onEditRow }) {
   const [localEditing, setLocalEditing] = useState(editing || {});
   useEffect(() => { setLocalEditing(editing || {}); }, [editing]);
 
@@ -260,14 +311,14 @@ function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, 
                   </td>
                 ))}
                 <td className="p-2 space-x-2">
-                  {edit ? (
+                  {(!modalEdit && edit) ? (
                     <>
                       <button className="bg-blue-600 text-white px-3 py-1 rounded" onClick={()=> onSave(edit)}>Save</button>
                       <button className="px-3 py-1 border rounded" onClick={cancelEdit}>Cancel</button>
                     </>
                   ) : (
                     <>
-                      <button className="bg-yellow-500 text-white px-3 py-1 rounded" onClick={()=> startEdit(row)}>Edit</button>
+                      <button className="bg-yellow-500 text-white px-3 py-1 rounded" onClick={()=> modalEdit ? onEditRow?.(row) : startEdit(row)}>Edit</button>
                       <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={()=> { if (window.confirm('Delete this item?')) onDelete(row.id); }}>Delete</button>
                     </>
                   )}

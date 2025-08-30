@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { deleteReview, searchReviews } from "../api/reviews";
 import { getPlatforms, getMediators, getStatuses } from "../api/lookups";
 import { useNavigate } from "react-router-dom";
+import Modal from "./Modal";
+import { useToast } from "./ToastProvider";
 
 export default function ReviewTable() {
   const [reviews, setReviews] = useState([]);
@@ -31,6 +33,7 @@ export default function ReviewTable() {
   const statusMap = useMemo(() => Object.fromEntries(statuses.map(s => [s.id, s.name])), [statuses]);
   const mediatorMap = useMemo(() => Object.fromEntries(mediators.map(m => [m.id, m])), [mediators]);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const loadReviews = useCallback(async () => {
     setLoading(true);
@@ -54,7 +57,17 @@ export default function ReviewTable() {
         getMediators(),
       ]);
       const pr = res.data;
-      setReviews(pr.content || []);
+      let list = pr.content || [];
+      // client-side sort by name-based pseudo fields
+      if (["platformName","statusName","mediatorName"].includes(sortField)) {
+        const nameOf = (r) => sortField === 'platformName' ? (platformMap[r.platformId]||'') : sortField === 'statusName' ? (statusMap[r.statusId]||'') : (mediatorMap[r.mediatorId]?.name||'');
+        list = [...list].sort((a,b) => {
+          const av = nameOf(a), bv = nameOf(b);
+          const cmp = String(av).localeCompare(String(bv));
+          return (sortDir === 'asc' ? cmp : -cmp);
+        });
+      }
+      setReviews(list);
       setTotalPages(pr.totalPages ?? 0);
       setTotalElements(pr.totalElements ?? 0);
       setPlatforms(pRes.data);
@@ -70,14 +83,13 @@ export default function ReviewTable() {
     loadReviews();
   }, [loadReviews]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this review?")) return;
-    try {
-      await deleteReview(id);
-      loadReviews();
-    } catch (err) {
-      console.error("Delete failed", err);
-    }
+  const [confirmId, setConfirmId] = useState(null);
+  const handleDelete = async (id) => { setConfirmId(id); };
+  const doDelete = async () => {
+    const id = confirmId;
+    setConfirmId(null);
+    try { await deleteReview(id); toast.show('Review deleted','success'); await loadReviews(); }
+    catch (e) { console.error(e); toast.show('Delete failed','error'); }
   };
 
   // server-side sorting/filtering now handled in loadReviews
@@ -173,9 +185,9 @@ export default function ReviewTable() {
           <tr className="bg-gray-200 text-left">
             <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("orderId")}>Order ID</th>
             <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("productName")}>Product</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("platformId")}>Platform</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("statusId")}>Status</th>
-            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("mediatorId")}>Mediator</th>
+            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("platformName")}>Platform</th>
+            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("statusName")}>Status</th>
+            <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("mediatorName")}>Mediator</th>
             <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("amountRupees")}>Amount</th>
             <th className="p-2 border cursor-pointer" onClick={()=>toggleSort("refundAmountRupees")}>Refund</th>
             <th className="p-2 border">Actions</th>
@@ -235,6 +247,13 @@ export default function ReviewTable() {
           )}
         </tbody>
       </table>
+      <Modal open={!!confirmId} title="Delete Review" onClose={()=> setConfirmId(null)}>
+        <p className="mb-4">Are you sure you want to delete this review?</p>
+        <div className="flex justify-end gap-2">
+          <button className="px-3 py-1 border rounded" onClick={()=> setConfirmId(null)}>Cancel</button>
+          <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={doDelete}>Delete</button>
+        </div>
+      </Modal>
     </div>
   );
 }

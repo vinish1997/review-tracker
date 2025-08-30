@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { ToastProvider } from "./components/ToastProvider";
 import Dashboard from "./pages/Dashboard";
 import Reviews from "./pages/Reviews";
 import Lookups from "./pages/Lookups";
@@ -6,6 +7,7 @@ import Lookups from "./pages/Lookups";
 function App() {
   return (
     <BrowserRouter>
+      <ToastProvider>
       <div className="flex h-screen">
         {/* Sidebar */}
         <nav className="w-60 bg-gray-800 text-white p-4 space-y-4">
@@ -24,6 +26,7 @@ function App() {
           </Routes>
         </main>
       </div>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

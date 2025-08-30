@@ -78,10 +78,10 @@ export default function ReviewTable() {
             <tr key={r.id} className="border-b">
               <td className="p-2">{r.orderId}</td>
               <td className="p-2">{r.productName}</td>
-              <td className="p-2">{r.platform}</td>
-              <td className="p-2">{r.status}</td>
-              <td className="p-2">₹{r.amount}</td>
-              <td className="p-2">₹{r.amount - r.less}</td>
+              <td className="p-2">{r.platformId}</td>
+              <td className="p-2">{r.statusId}</td>
+              <td className="p-2">₹{r.amountRupees}</td>
+              <td className="p-2">₹{r.refundAmountRupees ?? (Number(r.amountRupees ?? 0) - Number(r.lessRupees ?? 0))}</td>
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => navigate(`/reviews/edit/${r.id}`)}

@@ -12,9 +12,10 @@ export default function ReviewForm({ review, onSuccess }) {
       productName: "",
       platformId: "",
       mediatorId: "",
-      statusId: "Ordered",
-      amount: 0,
-      less: 0,
+      statusId: "",
+      amountRupees: 0,
+      lessRupees: 0,
+      refundAmountRupees: 0,
       orderedDate: null,
       deliveryDate: null,
       reviewSubmitDate: null,
@@ -124,12 +125,12 @@ export default function ReviewForm({ review, onSuccess }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block font-medium">Amount</label>
-          <input type="number" {...register("amount", { required: true, min: 0 })}
+          <input type="number" step="0.01" {...register("amountRupees", { required: true, min: 0 })}
                  className="border p-2 w-full rounded"/>
         </div>
         <div>
           <label className="block font-medium">Less</label>
-          <input type="number" {...register("less", { required: true, min: 0 })}
+          <input type="number" step="0.01" {...register("lessRupees", { required: true, min: 0 })}
                  className="border p-2 w-full rounded"/>
         </div>
       </div>

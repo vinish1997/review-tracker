@@ -39,6 +39,9 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         if (criteria.getProductNameContains() != null)
             filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));
 
+        if (criteria.getOrderIdContains() != null)
+            filters.add(Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i"));
+
         if (!filters.isEmpty()) {
             query.addCriteria(new Criteria().andOperator(filters.toArray(new Criteria[0])));
         }

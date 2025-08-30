@@ -16,4 +16,10 @@ public class Mediator {
     @Id
     private String id;
     private String name;
+    private String phone;
+
+    public Mediator(String id, String name) {
+        this.id = id;
+        this.name = name;
+    }
 }

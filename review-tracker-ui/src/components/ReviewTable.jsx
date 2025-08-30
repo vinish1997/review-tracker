@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { getReviews, deleteReview } from "../api/reviews";
+import { deleteReview, searchReviews } from "../api/reviews";
 import { getPlatforms, getMediators, getStatuses } from "../api/lookups";
 import { useNavigate } from "react-router-dom";
 
 export default function ReviewTable() {
-  const [rawReviews, setRawReviews] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -25,19 +24,31 @@ export default function ReviewTable() {
 
   const platformMap = useMemo(() => Object.fromEntries(platforms.map(p => [p.id, p.name])), [platforms]);
   const statusMap = useMemo(() => Object.fromEntries(statuses.map(s => [s.id, s.name])), [statuses]);
-  const mediatorMap = useMemo(() => Object.fromEntries(mediators.map(m => [m.id, m.name])), [mediators]);
+  const mediatorMap = useMemo(() => Object.fromEntries(mediators.map(m => [m.id, m])), [mediators]);
   const navigate = useNavigate();
 
   const loadReviews = useCallback(async () => {
     setLoading(true);
     try {
       const [res, pRes, sRes, mRes] = await Promise.all([
-        getReviews({ search }),
+        searchReviews({
+          platformId: fPlatformId || undefined,
+          statusId: fStatusId || undefined,
+          mediatorId: fMediatorId || undefined,
+          productNameContains: (fProductName || search) || undefined,
+          orderIdContains: (fOrderId || search) || undefined,
+        }, {
+          page: 0,
+          size: 1000,
+          sort: sortField,
+          dir: sortDir.toUpperCase(),
+        }),
         getPlatforms(),
         getStatuses(),
         getMediators(),
       ]);
-      setRawReviews(res.data);
+      const page = res.data;
+      setReviews(page.content || []);
       setPlatforms(pRes.data);
       setStatuses(sRes.data);
       setMediators(mRes.data);
@@ -45,7 +56,7 @@ export default function ReviewTable() {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  }, [search]);
+  }, [search, fPlatformId, fStatusId, fMediatorId, fProductName, fOrderId, sortField, sortDir]);
 
   useEffect(() => {
     loadReviews();
@@ -61,28 +72,7 @@ export default function ReviewTable() {
     }
   };
 
-  // Apply filters and sorting whenever dependencies change
-  useEffect(() => {
-    const filtered = rawReviews.filter(r => {
-      if (fPlatformId && r.platformId !== fPlatformId) return false;
-      if (fStatusId && r.statusId !== fStatusId) return false;
-      if (fMediatorId && r.mediatorId !== fMediatorId) return false;
-      if (fProductName && !(r.productName || "").toLowerCase().includes(fProductName.toLowerCase())) return false;
-      if (fOrderId && !(r.orderId || "").toLowerCase().includes(fOrderId.toLowerCase())) return false;
-      return true;
-    });
-    const sorted = [...filtered].sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
-      const av = a?.[sortField];
-      const bv = b?.[sortField];
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-      return String(av).localeCompare(String(bv)) * dir;
-    });
-    setReviews(sorted);
-  }, [rawReviews, fPlatformId, fStatusId, fMediatorId, fProductName, fOrderId, sortField, sortDir]);
+  // server-side sorting/filtering now handled in loadReviews
 
   const toggleSort = (field) => {
     if (sortField === field) {
@@ -178,12 +168,12 @@ export default function ReviewTable() {
               <td className="p-2">
                 {r.mediatorId ? (
                   <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`Hi ${mediatorMap[r.mediatorId] || ""}, regarding order ${r.orderId}`)}`}
+                    href={`https://wa.me/${mediatorMap[r.mediatorId]?.phone || ""}?text=${encodeURIComponent(`Hi ${mediatorMap[r.mediatorId]?.name || ""}, regarding order ${r.orderId}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-green-700 hover:underline"
                   >
-                    {mediatorMap[r.mediatorId] || r.mediatorId}
+                    {mediatorMap[r.mediatorId]?.name || r.mediatorId}
                   </a>
                 ) : null}
               </td>

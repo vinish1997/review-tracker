@@ -5,15 +5,17 @@ public class ReviewSearchCriteria {
     private String statusId;
     private String mediatorId;
     private String productNameContains;
+    private String orderIdContains;
 
     public ReviewSearchCriteria() {
     }
 
-    public ReviewSearchCriteria(String platformId, String statusId, String mediatorId, String productNameContains) {
+    public ReviewSearchCriteria(String platformId, String statusId, String mediatorId, String productNameContains, String orderIdContains) {
         this.platformId = platformId;
         this.statusId = statusId;
         this.mediatorId = mediatorId;
         this.productNameContains = productNameContains;
+        this.orderIdContains = orderIdContains;
     }
 
     public static Builder builder() {
@@ -52,11 +54,20 @@ public class ReviewSearchCriteria {
         this.productNameContains = productNameContains;
     }
 
+    public String getOrderIdContains() {
+        return orderIdContains;
+    }
+
+    public void setOrderIdContains(String orderIdContains) {
+        this.orderIdContains = orderIdContains;
+    }
+
     public static final class Builder {
         private String platformId;
         private String statusId;
         private String mediatorId;
         private String productNameContains;
+        private String orderIdContains;
 
         private Builder() { }
 
@@ -80,8 +91,13 @@ public class ReviewSearchCriteria {
             return this;
         }
 
+        public Builder orderIdContains(String orderIdContains) {
+            this.orderIdContains = orderIdContains;
+            return this;
+        }
+
         public ReviewSearchCriteria build() {
-            return new ReviewSearchCriteria(platformId, statusId, mediatorId, productNameContains);
+            return new ReviewSearchCriteria(platformId, statusId, mediatorId, productNameContains, orderIdContains);
         }
     }
 }

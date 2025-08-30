@@ -61,8 +61,11 @@ public class ReviewController {
     @PostMapping("/search")
     public Page<Review> search(@RequestBody ReviewSearchCriteria criteria,
                                @RequestParam(defaultValue = "0") int page,
-                               @RequestParam(defaultValue = "10") int size) {
-        return reviewService.searchReviews(criteria, PageRequest.of(page, size));
+                               @RequestParam(defaultValue = "10") int size,
+                               @RequestParam(required = false, defaultValue = "createdAt") String sort,
+                               @RequestParam(required = false, defaultValue = "DESC") String dir) {
+        Sort.Direction direction = "ASC".equalsIgnoreCase(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        return reviewService.searchReviews(criteria, PageRequest.of(page, size, Sort.by(direction, sort)));
     }
 
     // ---------- Clone / Copy ----------

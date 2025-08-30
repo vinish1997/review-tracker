@@ -50,6 +50,8 @@ export default function ReviewForm({ review, onSuccess }) {
   const deliveryDate = watch("deliveryDate");
   const reviewSubmitDate = watch("reviewSubmitDate");
   const refundFormSubmittedDate = watch("refundFormSubmittedDate");
+  const amountValue = watch("amountRupees");
+  const lessValue = watch("lessRupees");
 
   const onSubmit = async (data) => {
     try {
@@ -93,31 +95,39 @@ export default function ReviewForm({ review, onSuccess }) {
       {/* Product Name */}
       <div>
         <label className="block font-medium">Product Name</label>
-        <input {...register("productName", { required: true })}
-               className="border p-2 w-full rounded"/>
+        <input
+          {...register("productName", { required: "Product name is required" })}
+          className="border p-2 w-full rounded"
+        />
+        {errors.productName && (
+          <span className="text-red-500 text-sm">{errors.productName.message}</span>
+        )}
       </div>
 
       {/* Dropdowns */}
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block font-medium">Platform</label>
-          <select {...register("platformId", { required: true })} className="border p-2 w-full rounded">
+          <select {...register("platformId", { required: "Platform is required" })} className="border p-2 w-full rounded">
             <option value="">Select</option>
             {platforms.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
+          {errors.platformId && <span className="text-red-500 text-sm">{errors.platformId.message}</span>}
         </div>
         <div>
           <label className="block font-medium">Mediator</label>
-          <select {...register("mediatorId", { required: true })} className="border p-2 w-full rounded">
+          <select {...register("mediatorId", { required: "Mediator is required" })} className="border p-2 w-full rounded">
             <option value="">Select</option>
             {mediators.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
+          {errors.mediatorId && <span className="text-red-500 text-sm">{errors.mediatorId.message}</span>}
         </div>
         <div>
           <label className="block font-medium">Status</label>
-          <select {...register("statusId", { required: true })} className="border p-2 w-full rounded">
+          <select {...register("statusId", { required: "Status is required" })} className="border p-2 w-full rounded">
             {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
+          {errors.statusId && <span className="text-red-500 text-sm">{errors.statusId.message}</span>}
         </div>
       </div>
 
@@ -125,13 +135,37 @@ export default function ReviewForm({ review, onSuccess }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block font-medium">Amount</label>
-          <input type="number" step="0.01" {...register("amountRupees", { required: true, min: 0 })}
-                 className="border p-2 w-full rounded"/>
+          <input
+            type="number"
+            step="0.01"
+            {...register("amountRupees", {
+              required: "Amount is required",
+              min: { value: 0, message: "Amount cannot be negative" },
+              valueAsNumber: true,
+            })}
+            className="border p-2 w-full rounded"
+          />
+          {errors.amountRupees && <span className="text-red-500 text-sm">{errors.amountRupees.message}</span>}
         </div>
         <div>
           <label className="block font-medium">Less</label>
-          <input type="number" step="0.01" {...register("lessRupees", { required: true, min: 0 })}
-                 className="border p-2 w-full rounded"/>
+          <input
+            type="number"
+            step="0.01"
+            {...register("lessRupees", {
+              required: "Less amount is required",
+              min: { value: 0, message: "Less cannot be negative" },
+              validate: (v) => {
+                const less = typeof v === 'number' ? v : parseFloat(v ?? '0');
+                const amt = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
+                if (isFinite(less) && isFinite(amt) && less > amt) return "Less cannot exceed Amount";
+                return true;
+              },
+              valueAsNumber: true,
+            })}
+            className="border p-2 w-full rounded"
+          />
+          {errors.lessRupees && <span className="text-red-500 text-sm">{errors.lessRupees.message}</span>}
         </div>
       </div>
 

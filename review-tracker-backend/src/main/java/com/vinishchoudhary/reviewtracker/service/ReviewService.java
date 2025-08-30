@@ -45,6 +45,7 @@ public class ReviewService {
             existing.setProductName(updated.getProductName());
         }
         existing.setOrderId(updated.getOrderId());
+        existing.setOrderLink(updated.getOrderLink());
         existing.setPlatformId(updated.getPlatformId());
         existing.setStatusId(updated.getStatusId());
         existing.setMediatorId(updated.getMediatorId());
@@ -82,6 +83,7 @@ public class ReviewService {
         Review source = reviewRepo.findById(sourceId).orElseThrow();
         Review copy = Review.builder()
                 .orderId(source.getOrderId() + "-clone")
+                .orderLink(source.getOrderLink())
                 .productName(source.getProductName())
                 .platformId(source.getPlatformId())
                 .statusId(source.getStatusId())
@@ -109,6 +111,7 @@ public class ReviewService {
         for (String f : fields) {
             switch (f) {
                 case "productName": tgt.setProductName(src.getProductName()); break;
+                case "orderLink": tgt.setOrderLink(src.getOrderLink()); break;
                 case "platformId": tgt.setPlatformId(src.getPlatformId()); break;
                 case "statusId": tgt.setStatusId(src.getStatusId()); break;
                 case "mediatorId": tgt.setMediatorId(src.getMediatorId()); break;
@@ -137,6 +140,7 @@ public class ReviewService {
             if (updates.containsKey("statusId")) r.setStatusId((String) updates.get("statusId"));
             if (updates.containsKey("platformId")) r.setPlatformId((String) updates.get("platformId"));
             if (updates.containsKey("mediatorId")) r.setMediatorId((String) updates.get("mediatorId"));
+            if (updates.containsKey("orderLink")) r.setOrderLink((String) updates.get("orderLink"));
             if (updates.containsKey("orderedDate")) r.setOrderedDate(LocalDate.parse((String) updates.get("orderedDate")));
             if (updates.containsKey("deliveryDate")) r.setDeliveryDate(LocalDate.parse((String) updates.get("deliveryDate")));
         }

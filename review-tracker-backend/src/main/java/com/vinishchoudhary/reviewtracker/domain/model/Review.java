@@ -18,6 +18,7 @@ public class Review {
     private String id;
 
     private String orderId;
+    private String orderLink;
     private String productName;
     private String platformId;
     private String statusId;
@@ -38,4 +39,3 @@ public class Review {
     @LastModifiedDate
     private java.time.Instant updatedAt;
 }
-

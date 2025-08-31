@@ -7,7 +7,7 @@ import { getPlatforms, getMediators } from "../api/lookups";
 
 export default function ReviewForm({ review, onSuccess }) {
   const toast = useToast();
-  const { register, handleSubmit, control, watch, formState: { errors }, reset } = useForm({
+  const { register, handleSubmit, control, watch, formState: { errors }, reset, setValue } = useForm({
     defaultValues: review || {
       orderId: "",
       orderLink: "",
@@ -58,14 +58,60 @@ export default function ReviewForm({ review, onSuccess }) {
   const orderedDate = watch("orderedDate");
   const deliveryDate = watch("deliveryDate");
   const reviewSubmitDate = watch("reviewSubmitDate");
+  const reviewAcceptedDate = watch("reviewAcceptedDate");
+  const ratingSubmittedDate = watch("ratingSubmittedDate");
   const refundFormSubmittedDate = watch("refundFormSubmittedDate");
+  const paymentReceivedDate = watch("paymentReceivedDate");
   const amountValue = watch("amountRupees");
   const lessValue = watch("lessRupees");
+  const dealType = watch("dealType");
 
   // Computed refund preview
   const amtNum = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
   const lessNum = typeof lessValue === 'number' ? lessValue : parseFloat(lessValue ?? '0');
   const refundPreview = (isFinite(amtNum) ? amtNum : 0) - (isFinite(lessNum) ? lessNum : 0);
+
+  // Compute current status preview (mirror backend logic)
+  const statusPreview = (() => {
+    if (paymentReceivedDate) return "payment received";
+    if (refundFormSubmittedDate) return "refund form submitted";
+    const dt = dealType || "REVIEW_SUBMISSION";
+    if (dt === "REVIEW_PUBLISHED") {
+      if (reviewAcceptedDate) return "review accepted";
+      if (reviewSubmitDate) return "review submitted";
+    } else if (dt === "RATING_ONLY") {
+      if (ratingSubmittedDate) return "rating submitted";
+    } else {
+      if (reviewSubmitDate) return "review submitted";
+    }
+    if (deliveryDate) return "delivered";
+    if (orderedDate) return "ordered";
+    return "ordered";
+  })();
+
+  // Next date field to set for advancing status
+  const nextField = (() => {
+    if (!orderedDate) return "orderedDate";
+    if (!deliveryDate) return "deliveryDate";
+    const dt = dealType || "REVIEW_SUBMISSION";
+    if (dt === "REVIEW_PUBLISHED") {
+      if (!reviewSubmitDate) return "reviewSubmitDate";
+      if (!reviewAcceptedDate) return "reviewAcceptedDate";
+    } else if (dt === "RATING_ONLY") {
+      if (!ratingSubmittedDate) return "ratingSubmittedDate";
+    } else {
+      if (!reviewSubmitDate) return "reviewSubmitDate";
+    }
+    if (!refundFormSubmittedDate) return "refundFormSubmittedDate";
+    if (!paymentReceivedDate) return "paymentReceivedDate";
+    return null;
+  })();
+
+  const advanceStatus = () => {
+    const today = new Date();
+    if (!nextField) return;
+    setValue(nextField, today, { shouldValidate: true, shouldDirty: true });
+  };
 
   // Ensure selects show correct values when editing and lookups are loaded
   useEffect(() => {
@@ -209,7 +255,11 @@ export default function ReviewForm({ review, onSuccess }) {
         </div>
       </div>
 
-      {/* Refund preview */}
+      {/* Status + Refund preview */}
+      <div className="flex items-center justify-between text-sm">
+        <div>Current status: <span className="font-medium">{statusPreview}</span></div>
+        <button type="button" onClick={advanceStatus} className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200">Advance status</button>
+      </div>
       <div className={`text-sm ${refundPreview < 0 ? 'text-red-600' : 'text-gray-600'}`}>
         Refund preview: ₹{Number.isFinite(refundPreview) ? refundPreview.toFixed(2) : '-'}
       </div>
@@ -232,16 +282,42 @@ export default function ReviewForm({ review, onSuccess }) {
               dateFormat="yyyy-MM-dd"/>
           }/>
         </div>
-        <div>
-          <label className="block font-medium">Review Submit Date</label>
-          <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded"
-              selected={field.value}
-              onChange={field.onChange}
-              minDate={deliveryDate}
-              dateFormat="yyyy-MM-dd"/>
-          }/>
-        </div>
+        {dealType !== 'RATING_ONLY' && (
+          <div>
+            <label className="block font-medium">Review Submit Date</label>
+            <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
+              <DatePicker className="border p-2 w-full rounded"
+                selected={field.value}
+                onChange={field.onChange}
+                minDate={deliveryDate}
+                dateFormat="yyyy-MM-dd"/>
+            }/>
+          </div>
+        )}
+        {dealType === 'REVIEW_PUBLISHED' && (
+          <div>
+            <label className="block font-medium">Review Accepted Date</label>
+            <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>
+              <DatePicker className="border p-2 w-full rounded"
+                selected={field.value}
+                onChange={field.onChange}
+                minDate={reviewSubmitDate}
+                dateFormat="yyyy-MM-dd"/>
+            }/>
+          </div>
+        )}
+        {dealType === 'RATING_ONLY' && (
+          <div>
+            <label className="block font-medium">Rating Submitted Date</label>
+            <Controller name="ratingSubmittedDate" control={control} render={({ field }) =>
+              <DatePicker className="border p-2 w-full rounded"
+                selected={field.value}
+                onChange={field.onChange}
+                minDate={deliveryDate}
+                dateFormat="yyyy-MM-dd"/>
+            }/>
+          </div>
+        )}
         <div>
           <label className="block font-medium">Review Accepted Date</label>
           <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>

@@ -16,7 +16,10 @@ export default function EditReview() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Edit Review</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">Edit Review</h2>
+        <button className="px-3 py-1 border rounded" onClick={()=> navigate(-1)}>Cancel</button>
+      </div>
       <ReviewForm review={review} onSuccess={() => navigate("/reviews")} />
     </div>
   );

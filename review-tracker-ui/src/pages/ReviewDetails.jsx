@@ -26,6 +26,28 @@ export default function ReviewDetails() {
     setHistory(res.data);
   };
 
+  function duplicateToCreate(r, navigate) {
+    if (!r) return;
+    const clean = {
+      orderId: '',
+      orderLink: r.orderLink || '',
+      productName: r.productName || '',
+      platformId: r.platformId || '',
+      mediatorId: r.mediatorId || '',
+      dealType: r.dealType || '',
+      amountRupees: r.amountRupees ?? '',
+      lessRupees: r.lessRupees ?? '',
+      orderedDate: null,
+      deliveryDate: null,
+      reviewSubmitDate: null,
+      reviewAcceptedDate: null,
+      ratingSubmittedDate: null,
+      refundFormSubmittedDate: null,
+      paymentReceivedDate: null,
+    };
+    navigate('/reviews/new', { state: { prefill: clean } });
+  }
+
   if (!review) return <p>Loading...</p>;
 
   const seq = (() => {
@@ -68,6 +90,7 @@ export default function ReviewDetails() {
         <div className="space-x-2">
           <button className="px-3 py-1 border rounded" onClick={()=> navigate(-1)}>Back</button>
           <button className="px-3 py-1 bg-yellow-500 text-white rounded" onClick={()=> navigate(`/reviews/edit/${id}`)}>Edit</button>
+          <button className="px-3 py-1 bg-slate-600 text-white rounded" onClick={()=> duplicateToCreate(review, navigate)}>Duplicate</button>
           <button className="px-3 py-1 bg-indigo-600 text-white rounded" onClick={loadHistory}>View History</button>
         </div>
       </div>
@@ -75,8 +98,8 @@ export default function ReviewDetails() {
       <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded shadow">
         <Field label="Order ID" value={review.orderId} />
         <Field label="Product" value={review.productName} />
-        <Field label="Deal Type" value={review.dealType} />
-        <Field label="Status" value={review.status} />
+        <Field label="Deal Type" value={dealTypeLabel(review.dealType)} />
+        <Field label="Status" value={titleCaseStatus(review.status)} />
         <Field label="Platform" value={platformMap[review.platformId] || review.platformId} />
         <Field label="Mediator" value={mediatorMap[review.mediatorId] || review.mediatorId} />
         <Field label="Amount" value={review.amountRupees} />
@@ -101,13 +124,34 @@ export default function ReviewDetails() {
         </div>
       )}
 
+      {/* Lifecycle summary as timeline */}
+      <div className="bg-white p-4 rounded shadow">
+        <h3 className="text-xl font-semibold mb-2">Lifecycle</h3>
+        <div className="relative">
+          <div className="absolute left-3 top-0 bottom-0 w-px bg-gray-200" />
+          <TimelineItem label="Ordered" value={review.orderedDate} first />
+          <TimelineItem label="Delivered" value={review.deliveryDate} />
+          {review.dealType !== 'RATING_ONLY' && (
+            <TimelineItem label="Review Submitted" value={review.reviewSubmitDate} />
+          )}
+          {review.dealType === 'REVIEW_PUBLISHED' && (
+            <TimelineItem label="Review Accepted" value={review.reviewAcceptedDate} />
+          )}
+          {review.dealType === 'RATING_ONLY' && (
+            <TimelineItem label="Rating Submitted" value={review.ratingSubmittedDate} />
+          )}
+          <TimelineItem label="Refund Form Submitted" value={review.refundFormSubmittedDate} />
+          <TimelineItem label="Payment Received" value={review.paymentReceivedDate} last />
+        </div>
+      </div>
+
       {history && (
         <div className="bg-white p-4 rounded shadow">
           <h3 className="text-xl font-semibold mb-2">History</h3>
           {history.length === 0 && <div className="text-sm text-gray-500">No history.</div>}
           {history.map((h) => (
             <div key={h.id} className="border-b py-2">
-              <div className="text-sm text-gray-600">{(h.type || 'CHANGE').toUpperCase()} • {h.at ? new Date(h.at).toLocaleString() : ''}</div>
+              <div className="text-sm text-gray-600">{(h.type || 'CHANGE').toUpperCase()} • {h.at ? new Date(h.at).toLocaleDateString() : ''}</div>
               {h.note && <div className="text-sm">{h.note}</div>}
               {h.changes && h.changes.length > 0 && (
                 <table className="mt-2 text-sm w-full">
@@ -119,13 +163,18 @@ export default function ReviewDetails() {
                     </tr>
                   </thead>
                   <tbody>
-                    {h.changes.map((c, idx) => (
-                      <tr key={idx}>
-                        <td className="pr-4">{c.field}</td>
-                        <td className="pr-4">{String(c.oldVal ?? '')}</td>
-                        <td>{String(c.newVal ?? '')}</td>
-                      </tr>
-                    ))}
+                    {h.changes.map((c, idx) => {
+                      const label = fieldLabel(c.field);
+                      const oldV = formatFieldValue(c.field, c.oldVal);
+                      const newV = formatFieldValue(c.field, c.newVal);
+                      return (
+                        <tr key={idx}>
+                          <td className="pr-4">{label}</td>
+                          <td className="pr-4">{oldV}</td>
+                          <td>{newV}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -144,4 +193,50 @@ function Field({ label, value }) {
       <div className="font-medium">{value ?? '-'}</div>
     </div>
   );
+}
+
+function TimelineItem({ label, value, first, last }) {
+  return (
+    <div className="relative pl-8 py-2">
+      <span className={`absolute left-2 top-3 w-2.5 h-2.5 rounded-full ${value ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+      <div className="text-sm flex items-center justify-between">
+        <span className="text-gray-700">{label}</span>
+        <span className="font-medium">{value || '-'}</span>
+      </div>
+    </div>
+  );
+}
+
+function fieldLabel(k) {
+  const map = {
+    productName: 'Product Name', orderId:'Order ID', orderLink:'Order Link',
+    platformId:'Platform', mediatorId:'Mediator', dealType:'Deal Type',
+    amountRupees:'Amount', lessRupees:'Less', refundAmountRupees:'Refund',
+    orderedDate:'Ordered', deliveryDate:'Delivered', reviewSubmitDate:'Review Submitted',
+    reviewAcceptedDate:'Review Accepted', ratingSubmittedDate:'Rating Submitted',
+    refundFormSubmittedDate:'Refund Form Submitted', paymentReceivedDate:'Payment Received',
+    status:'Status'
+  };
+  return map[k] || k;
+}
+
+function formatFieldValue(field, val) {
+  if (val == null) return '';
+  const dateFields = new Set(['orderedDate','deliveryDate','reviewSubmitDate','reviewAcceptedDate','ratingSubmittedDate','refundFormSubmittedDate','paymentReceivedDate']);
+  if (dateFields.has(field)) return String(val);
+  return String(val);
+}
+
+function dealTypeLabel(code) {
+  switch (code) {
+    case 'REVIEW_PUBLISHED': return 'Review Published';
+    case 'REVIEW_SUBMISSION': return 'Review Submission';
+    case 'RATING_ONLY': return 'Rating Only';
+    default: return code || '-';
+  }
+}
+
+function titleCaseStatus(s) {
+  if (!s) return '-';
+  return String(s).replace(/\b\w/g, c => c.toUpperCase());
 }

@@ -3,6 +3,7 @@ package com.vinishchoudhary.reviewtracker.domain.model;
 import lombok.*;
 import org.springframework.data.annotation.*;
 import org.springframework.data.mongodb.core.mapping.*;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,6 +18,7 @@ public class Review {
     @Id
     private String id;
 
+    @Indexed(unique = true)
     private String orderId;
     private String orderLink;
     private String productName;

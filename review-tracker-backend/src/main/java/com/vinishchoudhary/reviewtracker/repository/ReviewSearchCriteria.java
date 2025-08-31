@@ -2,7 +2,7 @@ package com.vinishchoudhary.reviewtracker.repository;
 
 public class ReviewSearchCriteria {
     private String platformId;
-    private String statusId;
+    private String status;
     private String mediatorId;
     private String productNameContains;
     private String orderIdContains;
@@ -10,9 +10,9 @@ public class ReviewSearchCriteria {
     public ReviewSearchCriteria() {
     }
 
-    public ReviewSearchCriteria(String platformId, String statusId, String mediatorId, String productNameContains, String orderIdContains) {
+    public ReviewSearchCriteria(String platformId, String status, String mediatorId, String productNameContains, String orderIdContains) {
         this.platformId = platformId;
-        this.statusId = statusId;
+        this.status = status;
         this.mediatorId = mediatorId;
         this.productNameContains = productNameContains;
         this.orderIdContains = orderIdContains;
@@ -30,12 +30,12 @@ public class ReviewSearchCriteria {
         this.platformId = platformId;
     }
 
-    public String getStatusId() {
-        return statusId;
+    public String getStatus() {
+        return status;
     }
 
-    public void setStatusId(String statusId) {
-        this.statusId = statusId;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getMediatorId() {
@@ -64,7 +64,7 @@ public class ReviewSearchCriteria {
 
     public static final class Builder {
         private String platformId;
-        private String statusId;
+        private String status;
         private String mediatorId;
         private String productNameContains;
         private String orderIdContains;
@@ -76,8 +76,8 @@ public class ReviewSearchCriteria {
             return this;
         }
 
-        public Builder statusId(String statusId) {
-            this.statusId = statusId;
+        public Builder status(String status) {
+            this.status = status;
             return this;
         }
 
@@ -97,7 +97,7 @@ public class ReviewSearchCriteria {
         }
 
         public ReviewSearchCriteria build() {
-            return new ReviewSearchCriteria(platformId, statusId, mediatorId, productNameContains, orderIdContains);
+            return new ReviewSearchCriteria(platformId, status, mediatorId, productNameContains, orderIdContains);
         }
     }
 }

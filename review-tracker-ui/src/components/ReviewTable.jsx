@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { deleteReview, searchReviews } from "../api/reviews";
-import { getPlatforms, getMediators, getStatuses } from "../api/lookups";
+import { getPlatforms, getMediators } from "../api/lookups";
 import { useNavigate } from "react-router-dom";
 import Modal from "./Modal";
 import { useToast } from "./ToastProvider";
@@ -10,12 +10,10 @@ export default function ReviewTable() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [platforms, setPlatforms] = useState([]);
-  const [statuses, setStatuses] = useState([]);
   const [mediators, setMediators] = useState([]);
 
   // Advanced search filters
   const [fPlatformId, setFPlatformId] = useState("");
-  const [fStatusId, setFStatusId] = useState("");
   const [fMediatorId, setFMediatorId] = useState("");
   const [fProductName, setFProductName] = useState("");
   const [fOrderId, setFOrderId] = useState("");
@@ -30,7 +28,6 @@ export default function ReviewTable() {
   const [quickMode, setQuickMode] = useState("both"); // both | product | order
 
   const platformMap = useMemo(() => Object.fromEntries(platforms.map(p => [p.id, p.name])), [platforms]);
-  const statusMap = useMemo(() => Object.fromEntries(statuses.map(s => [s.id, s.name])), [statuses]);
   const mediatorMap = useMemo(() => Object.fromEntries(mediators.map(m => [m.id, m])), [mediators]);
   const navigate = useNavigate();
   const toast = useToast();
@@ -40,12 +37,11 @@ export default function ReviewTable() {
     try {
       const criteria = {
         platformId: fPlatformId || undefined,
-        statusId: fStatusId || undefined,
         mediatorId: fMediatorId || undefined,
         productNameContains: (fProductName || ((quickMode === "both" || quickMode === "product") ? search : "")) || undefined,
         orderIdContains: (fOrderId || ((quickMode === "both" || quickMode === "order") ? search : "")) || undefined,
       };
-      const [res, pRes, sRes, mRes] = await Promise.all([
+      const [res, pRes, mRes] = await Promise.all([
         searchReviews(criteria, {
           page,
           size,
@@ -53,14 +49,13 @@ export default function ReviewTable() {
           dir: sortDir.toUpperCase(),
         }),
         getPlatforms(),
-        getStatuses(),
         getMediators(),
       ]);
       const pr = res.data;
       let list = pr.content || [];
       // client-side sort by name-based pseudo fields
-      if (["platformName","statusName","mediatorName"].includes(sortField)) {
-        const nameOf = (r) => sortField === 'platformName' ? (platformMap[r.platformId]||'') : sortField === 'statusName' ? (statusMap[r.statusId]||'') : (mediatorMap[r.mediatorId]?.name||'');
+      if (["platformName","mediatorName"].includes(sortField)) {
+        const nameOf = (r) => sortField === 'platformName' ? (platformMap[r.platformId]||'') : (mediatorMap[r.mediatorId]?.name||'');
         list = [...list].sort((a,b) => {
           const av = nameOf(a), bv = nameOf(b);
           const cmp = String(av).localeCompare(String(bv));
@@ -71,13 +66,12 @@ export default function ReviewTable() {
       setTotalPages(pr.totalPages ?? 0);
       setTotalElements(pr.totalElements ?? 0);
       setPlatforms(pRes.data);
-      setStatuses(sRes.data);
       setMediators(mRes.data);
     } catch (err) {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  }, [search, fPlatformId, fStatusId, fMediatorId, fProductName, fOrderId, sortField, sortDir, page, size, quickMode]);
+  }, [search, fPlatformId, fMediatorId, fProductName, fOrderId, sortField, sortDir, page, size, quickMode]);
 
   useEffect(() => {
     loadReviews();
@@ -136,13 +130,7 @@ export default function ReviewTable() {
               {platforms.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium">Status</label>
-            <select className="border p-2 rounded" value={fStatusId} onChange={(e)=>setFStatusId(e.target.value)}>
-              <option value="">All</option>
-              {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
+          {/* Removed Status lookup filter; status is computed */}
           <div>
             <label className="block text-sm font-medium">Mediator</label>
             <select className="border p-2 rounded" value={fMediatorId} onChange={(e)=>setFMediatorId(e.target.value)}>
@@ -187,7 +175,7 @@ export default function ReviewTable() {
               { key: 'orderId', label: 'Order ID' },
               { key: 'productName', label: 'Product' },
               { key: 'platformName', label: 'Platform' },
-              { key: 'statusName', label: 'Status' },
+              { key: 'status', label: 'Status' },
               { key: 'mediatorName', label: 'Mediator' },
               { key: 'amountRupees', label: 'Amount' },
               { key: 'refundAmountRupees', label: 'Refund' },
@@ -218,7 +206,7 @@ export default function ReviewTable() {
                 )}
               </td>
               <td className="p-2">{platformMap[r.platformId] || r.platformId}</td>
-              <td className="p-2">{statusMap[r.statusId] || r.statusId}</td>
+              <td className="p-2">{r.status}</td>
               <td className="p-2">
                 {r.mediatorId ? (
                   <a

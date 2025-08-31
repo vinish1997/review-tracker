@@ -20,13 +20,16 @@ public class Review {
     private String orderId;
     private String orderLink;
     private String productName;
+    private String dealType; // REVIEW_PUBLISHED | REVIEW_SUBMISSION | RATING_ONLY
+    private String status;   // computed current status label
     private String platformId;
-    private String statusId;
     private String mediatorId;
 
     private LocalDate orderedDate;
     private LocalDate deliveryDate;
     private LocalDate reviewSubmitDate;
+    private LocalDate reviewAcceptedDate;
+    private LocalDate ratingSubmittedDate;
     private LocalDate refundFormSubmittedDate;
     private LocalDate paymentReceivedDate;
 

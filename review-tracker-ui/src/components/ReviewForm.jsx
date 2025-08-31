@@ -3,7 +3,7 @@ import DatePicker from "react-datepicker";
 import { useEffect, useState } from "react";
 import { createReview, updateReview } from "../api/reviews";
 import { useToast } from "./ToastProvider";
-import { getPlatforms, getMediators, getStatuses } from "../api/lookups";
+import { getPlatforms, getMediators } from "../api/lookups";
 
 export default function ReviewForm({ review, onSuccess }) {
   const toast = useToast();
@@ -14,7 +14,7 @@ export default function ReviewForm({ review, onSuccess }) {
       productName: "",
       platformId: "",
       mediatorId: "",
-      statusId: "",
+      dealType: "",
       // No numeric defaults; leave empty until user enters values
       orderedDate: null,
       deliveryDate: null,
@@ -32,14 +32,14 @@ export default function ReviewForm({ review, onSuccess }) {
   useEffect(() => {
   async function fetchLookups() {
     try {
-      const [pRes, mRes, sRes] = await Promise.all([
+      const [pRes, mRes] = await Promise.all([
         getPlatforms(),
         getMediators(),
-        getStatuses()
+        
       ]);
       setPlatforms(pRes.data);
       setMediators(mRes.data);
-      setStatuses(sRes.data);
+      setStatuses([]);
       setLookupsReady(true);
     } catch (err) {
       console.error("Lookup fetch failed", err);
@@ -75,7 +75,7 @@ export default function ReviewForm({ review, onSuccess }) {
         ...review,
         platformId: review.platformId ?? "",
         mediatorId: review.mediatorId ?? "",
-        statusId: review.statusId ?? "",
+        dealType: review.dealType ?? "",
       });
     }
   }, [review, lookupsReady, reset]);
@@ -141,8 +141,18 @@ export default function ReviewForm({ review, onSuccess }) {
         )}
       </div>
 
-      {/* Dropdowns */}
+      {/* Deal Type & Dropdowns */}
       <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block font-medium">Deal Type</label>
+          <select {...register("dealType", { required: "Deal type is required" })} className="border p-2 w-full rounded">
+            <option value="">Select</option>
+            <option value="REVIEW_PUBLISHED">Review Published</option>
+            <option value="REVIEW_SUBMISSION">Review Submission</option>
+            <option value="RATING_ONLY">Rating Only</option>
+          </select>
+          {errors.dealType && <span className="text-red-500 text-sm">{errors.dealType.message}</span>}
+        </div>
         <div>
           <label className="block font-medium">Platform</label>
           <select {...register("platformId", { required: "Platform is required" })} className="border p-2 w-full rounded">
@@ -158,14 +168,6 @@ export default function ReviewForm({ review, onSuccess }) {
             {mediators.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
           {errors.mediatorId && <span className="text-red-500 text-sm">{errors.mediatorId.message}</span>}
-        </div>
-        <div>
-          <label className="block font-medium">Status</label>
-          <select {...register("statusId", { required: "Status is required" })} className="border p-2 w-full rounded">
-            <option value="">Select</option>
-            {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          {errors.statusId && <span className="text-red-500 text-sm">{errors.statusId.message}</span>}
         </div>
       </div>
 
@@ -233,6 +235,26 @@ export default function ReviewForm({ review, onSuccess }) {
         <div>
           <label className="block font-medium">Review Submit Date</label>
           <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
+            <DatePicker className="border p-2 w-full rounded"
+              selected={field.value}
+              onChange={field.onChange}
+              minDate={deliveryDate}
+              dateFormat="yyyy-MM-dd"/>
+          }/>
+        </div>
+        <div>
+          <label className="block font-medium">Review Accepted Date</label>
+          <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>
+            <DatePicker className="border p-2 w-full rounded"
+              selected={field.value}
+              onChange={field.onChange}
+              minDate={reviewSubmitDate}
+              dateFormat="yyyy-MM-dd"/>
+          }/>
+        </div>
+        <div>
+          <label className="block font-medium">Rating Submitted Date</label>
+          <Controller name="ratingSubmittedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
               onChange={field.onChange}

@@ -260,6 +260,13 @@ export default function ReviewForm({ review, onSuccess }) {
         <div>Current status: <span className="font-medium">{statusPreview}</span></div>
         <button type="button" onClick={advanceStatus} className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200">Advance status</button>
       </div>
+      <div className="text-xs text-gray-500 mt-1">
+        Flow: {dealType === 'REVIEW_PUBLISHED' ? 'Ordered → Delivered → Review Submitted → Review Accepted → Refund Form Submitted → Payment Received'
+          : dealType === 'RATING_ONLY' ? 'Ordered → Delivered → Rating Submitted → Refund Form Submitted → Payment Received'
+          : dealType === 'REVIEW_SUBMISSION' ? 'Ordered → Delivered → Review Submitted → Refund Form Submitted → Payment Received'
+          : 'Select a Deal Type to view steps'}
+        <div>Tip: Advance sets the next missing date to today.</div>
+      </div>
       <div className={`text-sm ${refundPreview < 0 ? 'text-red-600' : 'text-gray-600'}`}>
         Refund preview: ₹{Number.isFinite(refundPreview) ? refundPreview.toFixed(2) : '-'}
       </div>
@@ -282,42 +289,17 @@ export default function ReviewForm({ review, onSuccess }) {
               dateFormat="yyyy-MM-dd"/>
           }/>
         </div>
-        {dealType !== 'RATING_ONLY' && (
-          <div>
-            <label className="block font-medium">Review Submit Date</label>
-            <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
-              <DatePicker className="border p-2 w-full rounded"
-                selected={field.value}
-                onChange={field.onChange}
-                minDate={deliveryDate}
-                dateFormat="yyyy-MM-dd"/>
-            }/>
-          </div>
-        )}
-        {dealType === 'REVIEW_PUBLISHED' && (
-          <div>
-            <label className="block font-medium">Review Accepted Date</label>
-            <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>
-              <DatePicker className="border p-2 w-full rounded"
-                selected={field.value}
-                onChange={field.onChange}
-                minDate={reviewSubmitDate}
-                dateFormat="yyyy-MM-dd"/>
-            }/>
-          </div>
-        )}
-        {dealType === 'RATING_ONLY' && (
-          <div>
-            <label className="block font-medium">Rating Submitted Date</label>
-            <Controller name="ratingSubmittedDate" control={control} render={({ field }) =>
-              <DatePicker className="border p-2 w-full rounded"
-                selected={field.value}
-                onChange={field.onChange}
-                minDate={deliveryDate}
-                dateFormat="yyyy-MM-dd"/>
-            }/>
-          </div>
-        )}
+        <div>
+          <label className="block font-medium">Review Submit Date</label>
+          <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
+            <DatePicker className="border p-2 w-full rounded"
+              selected={field.value}
+              onChange={field.onChange}
+              minDate={deliveryDate}
+              disabled={dealType === 'RATING_ONLY'}
+              dateFormat="yyyy-MM-dd"/>
+          }/>
+        </div>
         <div>
           <label className="block font-medium">Review Accepted Date</label>
           <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>
@@ -325,6 +307,7 @@ export default function ReviewForm({ review, onSuccess }) {
               selected={field.value}
               onChange={field.onChange}
               minDate={reviewSubmitDate}
+              disabled={dealType !== 'REVIEW_PUBLISHED'}
               dateFormat="yyyy-MM-dd"/>
           }/>
         </div>
@@ -335,6 +318,7 @@ export default function ReviewForm({ review, onSuccess }) {
               selected={field.value}
               onChange={field.onChange}
               minDate={deliveryDate}
+              disabled={dealType !== 'RATING_ONLY'}
               dateFormat="yyyy-MM-dd"/>
           }/>
         </div>

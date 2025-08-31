@@ -15,9 +15,7 @@ export default function ReviewForm({ review, onSuccess }) {
       platformId: "",
       mediatorId: "",
       statusId: "",
-      amountRupees: 0,
-      lessRupees: 0,
-      
+      // No numeric defaults; leave empty until user enters values
       orderedDate: null,
       deliveryDate: null,
       reviewSubmitDate: null,

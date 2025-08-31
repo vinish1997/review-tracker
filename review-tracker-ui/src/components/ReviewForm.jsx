@@ -55,6 +55,11 @@ export default function ReviewForm({ review, onSuccess }) {
   const amountValue = watch("amountRupees");
   const lessValue = watch("lessRupees");
 
+  // Computed refund preview
+  const amtNum = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
+  const lessNum = typeof lessValue === 'number' ? lessValue : parseFloat(lessValue ?? '0');
+  const refundPreview = (isFinite(amtNum) ? amtNum : 0) - (isFinite(lessNum) ? lessNum : 0);
+
   const onSubmit = async (data) => {
     try {
       if (review) {
@@ -171,6 +176,11 @@ export default function ReviewForm({ review, onSuccess }) {
           />
           {errors.lessRupees && <span className="text-red-500 text-sm">{errors.lessRupees.message}</span>}
         </div>
+      </div>
+
+      {/* Refund preview */}
+      <div className={`text-sm ${refundPreview < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+        Refund preview: ₹{Number.isFinite(refundPreview) ? refundPreview.toFixed(2) : '-'}
       </div>
 
       {/* Dates */}

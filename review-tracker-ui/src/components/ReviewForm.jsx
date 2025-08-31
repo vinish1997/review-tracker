@@ -1,5 +1,6 @@
 import { useForm, Controller } from "react-hook-form";
 import DatePicker from "react-datepicker";
+import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
 import { createReview, updateReview } from "../api/reviews";
 import { useToast } from "./ToastProvider";
@@ -272,15 +273,23 @@ export default function ReviewForm({ review, onSuccess }) {
       </div>
 
       {/* Dates */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded shadow-sm">
         <div>
-          <label className="block font-medium" title="Set the date the order was placed. Sets status to 'ordered' if later steps are empty.">Ordered Date</label>
+          <label className="block font-medium" title="Set the date the order was placed. Sets status to 'ordered' if later steps are empty.">
+            <span className="inline-flex items-center gap-1">Ordered Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
+              <button type="button" onClick={() => setValue('orderedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
+            </span>
+          </label>
           <Controller name="orderedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded" selected={field.value} onChange={field.onChange} dateFormat="yyyy-MM-dd"/>
           }/>
         </div>
         <div>
-          <label className="block font-medium" title="Set when the item was delivered. Moves status to 'delivered'.">Delivery Date</label>
+          <label className="block font-medium" title="Set when the item was delivered. Moves status to 'delivered'.">
+            <span className="inline-flex items-center gap-1">Delivery Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
+              <button type="button" onClick={() => setValue('deliveryDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
+            </span>
+          </label>
           <Controller name="deliveryDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
@@ -290,57 +299,84 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
         </div>
         <div>
-          <label className={`block font-medium ${dealType === 'RATING_ONLY' ? 'text-gray-400' : ''}`} title="For Review Published/Submission. Moves status to 'review submitted'.">Review Submit Date</label>
+          <label className={`block font-medium ${(dealType === 'RATING_ONLY' || !deliveryDate) ? 'text-gray-400' : ''}`} title="For Review Published/Submission. Moves status to 'review submitted'.">
+            <span className="inline-flex items-center gap-1">Review Submit Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
+              <button type="button" onClick={() => setValue('reviewSubmitDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
+            </span>
+          </label>
           <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
               onChange={field.onChange}
               minDate={deliveryDate}
-              disabled={dealType === 'RATING_ONLY'}
+              disabled={dealType === 'RATING_ONLY' || !deliveryDate}
               dateFormat="yyyy-MM-dd"/>
           }/>
+          {(dealType === 'RATING_ONLY' || !deliveryDate) && <div className="text-xs text-gray-500">Enable by setting Delivery Date and using Review Published/Submission.</div>}
         </div>
         <div>
-          <label className={`block font-medium ${dealType !== 'REVIEW_PUBLISHED' ? 'text-gray-400' : ''}`} title="For Review Published only. Moves status to 'review accepted'.">Review Accepted Date</label>
+          <label className={`block font-medium ${(dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate) ? 'text-gray-400' : ''}`} title="For Review Published only. Moves status to 'review accepted'.">
+            <span className="inline-flex items-center gap-1">Review Accepted Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
+              <button type="button" onClick={() => setValue('reviewAcceptedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
+            </span>
+          </label>
           <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
               onChange={field.onChange}
               minDate={reviewSubmitDate}
-              disabled={dealType !== 'REVIEW_PUBLISHED'}
+              disabled={dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate}
               dateFormat="yyyy-MM-dd"/>
           }/>
+          {(dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate) && <div className="text-xs text-gray-500">Enable by using Review Published and setting Review Submit Date.</div>}
         </div>
         <div>
-          <label className={`block font-medium ${dealType !== 'RATING_ONLY' ? 'text-gray-400' : ''}`} title="For Rating Only. Moves status to 'rating submitted'.">Rating Submitted Date</label>
+          <label className={`block font-medium ${(dealType !== 'RATING_ONLY' || !deliveryDate) ? 'text-gray-400' : ''}`} title="For Rating Only. Moves status to 'rating submitted'.">
+            <span className="inline-flex items-center gap-1">Rating Submitted Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
+              <button type="button" onClick={() => setValue('ratingSubmittedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
+            </span>
+          </label>
           <Controller name="ratingSubmittedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
               onChange={field.onChange}
               minDate={deliveryDate}
-              disabled={dealType !== 'RATING_ONLY'}
+              disabled={dealType !== 'RATING_ONLY' || !deliveryDate}
               dateFormat="yyyy-MM-dd"/>
           }/>
+          {(dealType !== 'RATING_ONLY' || !deliveryDate) && <div className="text-xs text-gray-500">Enable by using Rating Only and setting Delivery Date.</div>}
         </div>
         <div>
-          <label className="block font-medium" title="Set when refund form was submitted. Moves status to 'refund form submitted'.">Refund Form Submitted</label>
+          <label className={`block font-medium ${!(reviewAcceptedDate || reviewSubmitDate || ratingSubmittedDate) ? 'text-gray-400' : ''}`} title="Set when refund form was submitted. Moves status to 'refund form submitted'.">
+            <span className="inline-flex items-center gap-1">Refund Form Submitted <InformationCircleIcon className="w-4 h-4 text-gray-400" />
+              <button type="button" onClick={() => setValue('refundFormSubmittedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
+            </span>
+          </label>
           <Controller name="refundFormSubmittedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
               onChange={field.onChange}
               minDate={reviewSubmitDate}
+              disabled={!(reviewAcceptedDate || reviewSubmitDate || ratingSubmittedDate)}
               dateFormat="yyyy-MM-dd"/>
           }/>
+          {!(reviewAcceptedDate || reviewSubmitDate || ratingSubmittedDate) && <div className="text-xs text-gray-500">Enable by setting Review Accepted/Submitted or Rating Submitted first.</div>}
         </div>
         <div>
-          <label className="block font-medium" title="Set when refund/payment was received. Sets status to 'payment received'.">Payment Received</label>
+          <label className={`block font-medium ${!refundFormSubmittedDate ? 'text-gray-400' : ''}`} title="Set when refund/payment was received. Sets status to 'payment received'.">
+            <span className="inline-flex items-center gap-1">Payment Received <InformationCircleIcon className="w-4 h-4 text-gray-400" />
+              <button type="button" onClick={() => setValue('paymentReceivedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
+            </span>
+          </label>
           <Controller name="paymentReceivedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
               onChange={field.onChange}
               minDate={refundFormSubmittedDate}
+              disabled={!refundFormSubmittedDate}
               dateFormat="yyyy-MM-dd"/>
           }/>
+          {!refundFormSubmittedDate && <div className="text-xs text-gray-500">Enable by setting Refund Form Submitted first.</div>}
         </div>
       </div>
 

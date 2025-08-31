@@ -66,6 +66,7 @@ export default function ReviewForm({ review, onSuccess }) {
   const amountValue = watch("amountRupees");
   const lessValue = watch("lessRupees");
   const dealType = watch("dealType");
+  const [showRelevantOnly, setShowRelevantOnly] = useState(true);
 
   // Computed refund preview
   const amtNum = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
@@ -274,6 +275,10 @@ export default function ReviewForm({ review, onSuccess }) {
 
       {/* Dates */}
       <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded shadow-sm">
+        <div className="col-span-2 flex items-center gap-2 text-sm text-gray-600 mb-2">
+          <input id="relevantOnly" type="checkbox" checked={showRelevantOnly} onChange={(e)=> setShowRelevantOnly(e.target.checked)} />
+          <label htmlFor="relevantOnly">Show only relevant steps</label>
+        </div>
         <div>
           <label className="block font-medium" title="Set the date the order was placed. Sets status to 'ordered' if later steps are empty.">
             <span className="inline-flex items-center gap-1">Ordered Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
@@ -298,6 +303,7 @@ export default function ReviewForm({ review, onSuccess }) {
               dateFormat="yyyy-MM-dd"/>
           }/>
         </div>
+        {(showRelevantOnly ? dealType !== 'RATING_ONLY' : true) && (
         <div>
           <label className={`block font-medium ${(dealType === 'RATING_ONLY' || !deliveryDate) ? 'text-gray-400' : ''}`} title="For Review Published/Submission. Moves status to 'review submitted'.">
             <span className="inline-flex items-center gap-1">Review Submit Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
@@ -314,6 +320,8 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
           {(dealType === 'RATING_ONLY' || !deliveryDate) && <div className="text-xs text-gray-500">Enable by setting Delivery Date and using Review Published/Submission.</div>}
         </div>
+        )}
+        {(showRelevantOnly ? dealType === 'REVIEW_PUBLISHED' : true) && (
         <div>
           <label className={`block font-medium ${(dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate) ? 'text-gray-400' : ''}`} title="For Review Published only. Moves status to 'review accepted'.">
             <span className="inline-flex items-center gap-1">Review Accepted Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
@@ -330,6 +338,8 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
           {(dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate) && <div className="text-xs text-gray-500">Enable by using Review Published and setting Review Submit Date.</div>}
         </div>
+        )}
+        {(showRelevantOnly ? dealType === 'RATING_ONLY' : true) && (
         <div>
           <label className={`block font-medium ${(dealType !== 'RATING_ONLY' || !deliveryDate) ? 'text-gray-400' : ''}`} title="For Rating Only. Moves status to 'rating submitted'.">
             <span className="inline-flex items-center gap-1">Rating Submitted Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
@@ -346,6 +356,7 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
           {(dealType !== 'RATING_ONLY' || !deliveryDate) && <div className="text-xs text-gray-500">Enable by using Rating Only and setting Delivery Date.</div>}
         </div>
+        )}
         <div>
           <label className={`block font-medium ${!(reviewAcceptedDate || reviewSubmitDate || ratingSubmittedDate) ? 'text-gray-400' : ''}`} title="Set when refund form was submitted. Moves status to 'refund form submitted'.">
             <span className="inline-flex items-center gap-1">Refund Form Submitted <InformationCircleIcon className="w-4 h-4 text-gray-400" />

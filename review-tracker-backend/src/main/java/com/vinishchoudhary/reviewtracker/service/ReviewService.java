@@ -218,6 +218,12 @@ public class ReviewService {
         result.put("totalPaymentReceived", totalReceived);
         result.put("reviewsSubmitted", submitted);
         result.put("reviewsPending", pending);
+        Map<String, Long> statusCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getStatus()).orElse("unknown"), Collectors.counting()));
+        Map<String, Long> platformCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getPlatformId()).orElse("unknown"), Collectors.counting()));
+        Map<String, Long> dealTypeCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getDealType()).orElse("unknown"), Collectors.counting()));
+        result.put("statusCounts", statusCounts);
+        result.put("platformCounts", platformCounts);
+        result.put("dealTypeCounts", dealTypeCounts);
         return result;
     }
 

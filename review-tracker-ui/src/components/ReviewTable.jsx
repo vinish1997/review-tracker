@@ -195,7 +195,9 @@ export default function ReviewTable() {
         <tbody>
           {reviews.map((r) => (
             <tr key={r.id} className="border-b">
-              <td className="p-2">{r.orderId}</td>
+              <td className="p-2">
+                <button className="text-blue-600 hover:underline" onClick={()=> navigate(`/reviews/view/${r.id}`)}>{r.orderId}</button>
+              </td>
               <td className="p-2">
                 {r.orderLink ? (
                   <a href={r.orderLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">

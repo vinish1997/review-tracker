@@ -11,10 +11,26 @@ export default function ReviewTable() {
   const [search, setSearch] = useState("");
   const [platforms, setPlatforms] = useState([]);
   const [mediators, setMediators] = useState([]);
+  const statusOptions = [
+    "ordered",
+    "delivered",
+    "review submitted",
+    "review accepted",
+    "rating submitted",
+    "refund form submitted",
+    "payment received",
+  ];
+  const dealTypeOptions = [
+    { value: "REVIEW_PUBLISHED", label: "Review Published" },
+    { value: "REVIEW_SUBMISSION", label: "Review Submission" },
+    { value: "RATING_ONLY", label: "Rating Only" },
+  ];
 
   // Advanced search filters
   const [fPlatformId, setFPlatformId] = useState("");
   const [fMediatorId, setFMediatorId] = useState("");
+  const [fStatus, setFStatus] = useState("");
+  const [fDealType, setFDealType] = useState("");
   const [fProductName, setFProductName] = useState("");
   const [fOrderId, setFOrderId] = useState("");
 
@@ -38,6 +54,8 @@ export default function ReviewTable() {
       const criteria = {
         platformId: fPlatformId || undefined,
         mediatorId: fMediatorId || undefined,
+        status: fStatus || undefined,
+        dealType: fDealType || undefined,
         productNameContains: (fProductName || ((quickMode === "both" || quickMode === "product") ? search : "")) || undefined,
         orderIdContains: (fOrderId || ((quickMode === "both" || quickMode === "order") ? search : "")) || undefined,
       };
@@ -52,7 +70,7 @@ export default function ReviewTable() {
         getMediators(),
       ]);
       const pr = res.data;
-      let list = pr.content || [];
+      let list = (pr.content || []).filter(r => r.status !== 'payment received');
       // client-side sort by name-based pseudo fields
       if (["platformName","mediatorName"].includes(sortField)) {
         const nameOf = (r) => sortField === 'platformName' ? (platformMap[r.platformId]||'') : (mediatorMap[r.mediatorId]?.name||'');
@@ -71,7 +89,7 @@ export default function ReviewTable() {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  }, [search, fPlatformId, fMediatorId, fProductName, fOrderId, sortField, sortDir, page, size, quickMode]);
+  }, [search, fPlatformId, fMediatorId, fProductName, fOrderId, sortField, sortDir, page, size, quickMode, fStatus, fDealType]);
 
   useEffect(() => {
     loadReviews();
@@ -138,13 +156,20 @@ export default function ReviewTable() {
               {mediators.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </div>
+          {/* Removed separate Product/Order search; quick search covers both */}
           <div>
-            <label className="block text-sm font-medium">Product</label>
-            <input className="border p-2 rounded" value={fProductName} onChange={(e)=>setFProductName(e.target.value)} />
+            <label className="block text-sm font-medium">Status</label>
+            <select className="border p-2 rounded" value={fStatus} onChange={(e)=> { setFStatus(e.target.value); setPage(0);} }>
+              <option value="">All</option>
+              {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
           <div>
-            <label className="block text-sm font-medium">Order ID</label>
-            <input className="border p-2 rounded" value={fOrderId} onChange={(e)=>setFOrderId(e.target.value)} />
+            <label className="block text-sm font-medium">Deal Type</label>
+            <select className="border p-2 rounded" value={fDealType} onChange={(e)=> { setFDealType(e.target.value); setPage(0);} }>
+              <option value="">All</option>
+              {dealTypeOptions.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
           </div>
           <div className="ml-auto flex gap-2">
             <button onClick={loadReviews} className="bg-blue-500 text-white px-4 py-2 rounded self-end">Search</button>
@@ -176,6 +201,7 @@ export default function ReviewTable() {
               { key: 'productName', label: 'Product' },
               { key: 'platformName', label: 'Platform' },
               { key: 'status', label: 'Status' },
+              { key: 'dealType', label: 'Deal Type' },
               { key: 'mediatorName', label: 'Mediator' },
               { key: 'amountRupees', label: 'Amount' },
               { key: 'refundAmountRupees', label: 'Refund' },
@@ -209,6 +235,7 @@ export default function ReviewTable() {
               </td>
               <td className="p-2">{platformMap[r.platformId] || r.platformId}</td>
               <td className="p-2">{r.status}</td>
+              <td className="p-2">{r.dealType}</td>
               <td className="p-2">
                 {r.mediatorId ? (
                   <a

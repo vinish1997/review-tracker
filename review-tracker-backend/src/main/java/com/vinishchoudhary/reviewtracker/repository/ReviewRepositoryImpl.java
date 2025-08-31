@@ -35,6 +35,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         if (criteria.getStatus() != null) filters.add(Criteria.where("status").is(criteria.getStatus()));
 
         if (criteria.getMediatorId() != null) filters.add(Criteria.where("mediatorId").is(criteria.getMediatorId()));
+        if (criteria.getDealType() != null) filters.add(Criteria.where("dealType").is(criteria.getDealType()));
 
         if (criteria.getProductNameContains() != null)
             filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));

@@ -53,14 +53,33 @@ export default function ReviewDetails() {
       {history && (
         <div className="bg-white p-4 rounded shadow">
           <h3 className="text-xl font-semibold mb-2">History</h3>
-          <ul className="space-y-2">
-            {history.map((h, i) => (
-              <li key={i} className="border-b pb-2">
-                <div className="text-sm text-gray-600">{h.action || 'CHANGE'} • {new Date().toLocaleString()}</div>
-                <div className="text-sm">{h.description || '-'}</div>
-              </li>
-            ))}
-          </ul>
+          {history.length === 0 && <div className="text-sm text-gray-500">No history.</div>}
+          {history.map((h) => (
+            <div key={h.id} className="border-b py-2">
+              <div className="text-sm text-gray-600">{(h.type || 'CHANGE').toUpperCase()} • {h.at ? new Date(h.at).toLocaleString() : ''}</div>
+              {h.note && <div className="text-sm">{h.note}</div>}
+              {h.changes && h.changes.length > 0 && (
+                <table className="mt-2 text-sm w-full">
+                  <thead>
+                    <tr className="text-left text-gray-500">
+                      <th className="pr-4">Field</th>
+                      <th className="pr-4">Old</th>
+                      <th>New</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {h.changes.map((c, idx) => (
+                      <tr key={idx}>
+                        <td className="pr-4">{c.field}</td>
+                        <td className="pr-4">{String(c.oldVal ?? '')}</td>
+                        <td>{String(c.newVal ?? '')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -75,4 +94,3 @@ function Field({ label, value }) {
     </div>
   );
 }
-

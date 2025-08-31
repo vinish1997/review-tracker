@@ -6,16 +6,18 @@ public class ReviewSearchCriteria {
     private String mediatorId;
     private String productNameContains;
     private String orderIdContains;
+    private String dealType;
 
     public ReviewSearchCriteria() {
     }
 
-    public ReviewSearchCriteria(String platformId, String status, String mediatorId, String productNameContains, String orderIdContains) {
+    public ReviewSearchCriteria(String platformId, String status, String mediatorId, String productNameContains, String orderIdContains, String dealType) {
         this.platformId = platformId;
         this.status = status;
         this.mediatorId = mediatorId;
         this.productNameContains = productNameContains;
         this.orderIdContains = orderIdContains;
+        this.dealType = dealType;
     }
 
     public static Builder builder() {
@@ -62,12 +64,16 @@ public class ReviewSearchCriteria {
         this.orderIdContains = orderIdContains;
     }
 
+    public String getDealType() { return dealType; }
+    public void setDealType(String dealType) { this.dealType = dealType; }
+
     public static final class Builder {
         private String platformId;
         private String status;
         private String mediatorId;
         private String productNameContains;
         private String orderIdContains;
+        private String dealType;
 
         private Builder() { }
 
@@ -96,8 +102,13 @@ public class ReviewSearchCriteria {
             return this;
         }
 
+        public Builder dealType(String dealType) {
+            this.dealType = dealType;
+            return this;
+        }
+
         public ReviewSearchCriteria build() {
-            return new ReviewSearchCriteria(platformId, status, mediatorId, productNameContains, orderIdContains);
+            return new ReviewSearchCriteria(platformId, status, mediatorId, productNameContains, orderIdContains, dealType);
         }
     }
 }

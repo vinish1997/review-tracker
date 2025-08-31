@@ -1,20 +1,17 @@
 import { useEffect, useState } from "react";
 import {
   pagePlatforms,
-  pageStatuses,
   pageMediators,
   savePlatform,
-  saveStatus,
   saveMediator,
   deletePlatform,
-  deleteStatus,
   deleteMediator,
 } from "../api/lookups";
 import Modal from "../components/Modal";
 import { useToast } from "../components/ToastProvider";
 
 export default function Lookups() {
-  const [tab, setTab] = useState("platforms"); // platforms | statuses | mediators
+  const [tab, setTab] = useState("platforms"); // platforms | mediators
   // Platforms state
   const [pf, setPf] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
   const [pfInline, setPfInline] = useState(false);
@@ -22,12 +19,7 @@ export default function Lookups() {
   const [pfErr, setPfErr] = useState("");
   const [pfEditing, setPfEditing] = useState({}); // id -> { name }
 
-  // Statuses state
-  const [st, setSt] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
-  const [stInline, setStInline] = useState(false);
-  const [stName, setStName] = useState("");
-  const [stErr, setStErr] = useState("");
-  const [stEditing, setStEditing] = useState({});
+  // Status lookups removed
 
   // Mediators state
   const [md, setMd] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
@@ -53,19 +45,7 @@ export default function Lookups() {
     });
   };
 
-  const loadStatuses = async (overrides = {}) => {
-    const params = { page: st.page, size: st.size, sort: st.sort, dir: st.dir, ...overrides };
-    const { data } = await pageStatuses(params);
-    setSt({
-      items: data.content || [],
-      page: data.page ?? 0,
-      size: data.size ?? params.size,
-      totalPages: data.totalPages ?? 0,
-      totalElements: data.totalElements ?? 0,
-      sort: params.sort,
-      dir: params.dir,
-    });
-  };
+  const loadStatuses = async () => {};
 
   const loadMediators = async (overrides = {}) => {
     const params = { page: md.page, size: md.size, sort: md.sort, dir: md.dir, ...overrides };
@@ -81,7 +61,7 @@ export default function Lookups() {
     });
   };
 
-  useEffect(() => { loadPlatforms(); loadStatuses(); loadMediators(); }, []);
+  useEffect(() => { loadPlatforms(); loadMediators(); }, []);
 
   const addPlatform = async (e) => {
     e.preventDefault();
@@ -89,12 +69,7 @@ export default function Lookups() {
     try { await savePlatform({ name: pfName }); setPfName(""); setPfErr(""); await loadPlatforms(); toast.show('Platform saved','success'); }
     catch (e) { console.error(e); toast.show('Failed to save platform','error'); }
   };
-  const addStatus = async (e) => {
-    e.preventDefault();
-    if (!stName.trim()) { setStErr('Name is required'); return; }
-    try { await saveStatus({ name: stName }); setStName(""); setStErr(""); await loadStatuses(); toast.show('Status saved','success'); }
-    catch (e) { console.error(e); toast.show('Failed to save status','error'); }
-  };
+  const addStatus = async () => {};
   const addMediator = async (e) => {
     e.preventDefault();
     let ok = true;
@@ -108,7 +83,7 @@ export default function Lookups() {
 
   // Modal edit/delete for Platforms & Statuses
   const [pfModal, setPfModal] = useState(null); // {id,name}
-  const [stModal, setStModal] = useState(null); // {id,name}
+  const [stModal, setStModal] = useState(null); // unused
   const [delModal, setDelModal] = useState(null); // {type,id,name}
 
   return (
@@ -119,7 +94,6 @@ export default function Lookups() {
       <div className="flex gap-2 mb-6 border-b">
         {[
           { key: "platforms", label: "Platforms" },
-          { key: "statuses", label: "Statuses" },
           { key: "mediators", label: "Mediators" },
         ].map(t => (
           <button
@@ -165,38 +139,7 @@ export default function Lookups() {
       </section>
       )}
 
-      {tab === 'statuses' && (
-      <section className="mb-8">
-        <h3 className="text-xl font-semibold mb-2">Statuses</h3>
-        <form onSubmit={addStatus} className="flex gap-3 items-end mb-2">
-          <div>
-            <label className="block text-sm font-medium">Name</label>
-            <input value={stName} onChange={(e)=>setStName(e.target.value)} className="border p-2 rounded" placeholder="Status name" />
-          </div>
-          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
-        </form>
-        {stErr && <div className="text-red-600 text-sm mb-4">{stErr}</div>}
-        <div className="flex items-center gap-2 mb-2">
-          <input id="stInline" type="checkbox" checked={stInline} onChange={(e)=> setStInline(e.target.checked)} />
-          <label htmlFor="stInline">Use inline editing</label>
-        </div>
-        <LookupTable
-          items={st.items}
-          columns={[{key:'name', label:'Name'}]}
-          editing={stEditing}
-          onEditChange={setStEditing}
-          modalEdit={!stInline}
-          onEditRow={(row)=> setStModal({ ...row })}
-          onSave={async (row)=> { await saveStatus(row); setStEditing({}); await loadStatuses(); toast.show('Status saved','success'); }}
-          onDelete={(id)=> setDelModal({ type:'status', id, name: (st.items.find(x=>x.id===id)?.name)||'' })}
-          page={st.page} size={st.size} totalPages={st.totalPages} totalElements={st.totalElements}
-          setPage={(p)=> loadStatuses({ page: p })}
-          setSize={(s)=> loadStatuses({ size: s, page: 0 })}
-          sort={st.sort} dir={st.dir}
-          onSort={(field, dir)=> loadStatuses({ sort: field, dir, page: 0 })}
-        />
-      </section>
-      )}
+      {/* Statuses tab removed */}
 
       {tab === 'mediators' && (
       <section className="mb-8">
@@ -249,16 +192,7 @@ export default function Lookups() {
         </form>
       </Modal>
 
-      <Modal open={!!stModal} title="Edit Status" onClose={()=> setStModal(null)}>
-        <form onSubmit={async (e)=> { e.preventDefault(); if (!stModal.name?.trim()) return; try { await saveStatus(stModal); setStModal(null); await loadStatuses(); toast.show('Status saved','success'); } catch(e){ console.error(e); toast.show('Failed to save status','error'); } }}>
-          <label className="block text-sm font-medium mb-1">Name</label>
-          <input className="border p-2 rounded w-full" value={stModal?.name || ''} onChange={(e)=> setStModal({ ...(stModal||{}), name: e.target.value })} />
-          <div className="flex justify-end gap-2 mt-4">
-            <button type="button" className="px-3 py-1 border rounded" onClick={()=> setStModal(null)}>Cancel</button>
-            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded">Save</button>
-          </div>
-        </form>
-      </Modal>
+      {/* Status edit modal removed */}
 
       <Modal open={!!delModal} title="Confirm Delete" onClose={()=> setDelModal(null)}>
         <p className="mb-4">Are you sure you want to delete {delModal?.type} <span className="font-semibold">{delModal?.name}</span>?</p>
@@ -267,10 +201,9 @@ export default function Lookups() {
           <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={async ()=> {
             try {
               if (delModal?.type==='platform') await deletePlatform(delModal.id);
-              if (delModal?.type==='status') await deleteStatus(delModal.id);
               if (delModal?.type==='mediator') await deleteMediator(delModal.id);
               setDelModal(null);
-              await Promise.all([loadPlatforms(), loadStatuses(), loadMediators()]);
+              await Promise.all([loadPlatforms(), loadMediators()]);
               toast.show('Deleted','success');
             } catch(e) { console.error(e); toast.show('Delete failed','error'); }
           }}>Delete</button>

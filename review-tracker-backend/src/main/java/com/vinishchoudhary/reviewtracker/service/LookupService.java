@@ -2,10 +2,8 @@ package com.vinishchoudhary.reviewtracker.service;
 
 import com.vinishchoudhary.reviewtracker.domain.model.Mediator;
 import com.vinishchoudhary.reviewtracker.domain.model.Platform;
-import com.vinishchoudhary.reviewtracker.domain.model.Status;
 import com.vinishchoudhary.reviewtracker.repository.MediatorRepository;
 import com.vinishchoudhary.reviewtracker.repository.PlatformRepository;
-import com.vinishchoudhary.reviewtracker.repository.StatusRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,7 +15,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LookupService {
     private final PlatformRepository platformRepo;
-    private final StatusRepository statusRepo;
     private final MediatorRepository mediatorRepo;
 
     public Page<Platform> allPlatforms(Pageable pageable) { return platformRepo.findAll(pageable); }
@@ -26,11 +23,7 @@ public class LookupService {
         return platformRepo.save(p);
     }
 
-    public Page<Status> allStatuses(Pageable pageable) { return statusRepo.findAll(pageable); }
-
-    public Status saveStatus(Status s) {
-        return statusRepo.save(s);
-    }
+    // Status lookups removed — status is computed and static
 
     public Page<Mediator> allMediators(Pageable pageable) { return mediatorRepo.findAll(pageable); }
 
@@ -39,6 +32,5 @@ public class LookupService {
     }
 
     public void deletePlatform(String id) { platformRepo.deleteById(id); }
-    public void deleteStatus(String id) { statusRepo.deleteById(id); }
     public void deleteMediator(String id) { mediatorRepo.deleteById(id); }
 }

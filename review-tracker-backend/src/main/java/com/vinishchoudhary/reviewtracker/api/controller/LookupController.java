@@ -32,20 +32,8 @@ public class LookupController {
         return lookupService.savePlatform(p);
     }
 
-    @GetMapping("/statuses")
-    public PageResponse<Status> statuses(@RequestParam(defaultValue = "0") int page,
-                                         @RequestParam(defaultValue = "10") int size,
-                                         @RequestParam(defaultValue = "name") String sort,
-                                         @RequestParam(defaultValue = "ASC") String dir) {
-        Sort.Direction direction = "ASC".equalsIgnoreCase(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Page<Status> res = lookupService.allStatuses(PageRequest.of(page, size, Sort.by(direction, sort)));
-        return new PageResponse<>(res.getContent(), res.getNumber(), res.getSize(), res.getTotalElements(), res.getTotalPages(), sort, dir);
-    }
 
-    @PostMapping("/statuses")
-    public Status saveStatus(@RequestBody Status s) {
-        return lookupService.saveStatus(s);
-    }
+    // Status lookups removed — status is computed and static now
 
     @GetMapping("/mediators")
     public PageResponse<Mediator> mediators(@RequestParam(defaultValue = "0") int page,
@@ -65,8 +53,7 @@ public class LookupController {
     @DeleteMapping("/platforms/{id}")
     public void deletePlatform(@PathVariable String id) { lookupService.deletePlatform(id); }
 
-    @DeleteMapping("/statuses/{id}")
-    public void deleteStatus(@PathVariable String id) { lookupService.deleteStatus(id); }
+    // Status deletion removed
 
     @DeleteMapping("/mediators/{id}")
     public void deleteMediator(@PathVariable String id) { lookupService.deleteMediator(id); }

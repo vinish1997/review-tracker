@@ -11,4 +11,4 @@ mkdir -p review-tracker-backend/src/main/resources/static
 cp -r review-tracker-ui/dist/* review-tracker-backend/src/main/resources/static/
 
 # package backend (will also include frontend). Skip tests to avoid wiping local DB during builds
-mvn -f review-tracker-backend/pom.xml -DskipTests package
+mvn -f review-tracker-backend/pom.xml -Dmaven.test.skip=true package

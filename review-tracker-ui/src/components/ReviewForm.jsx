@@ -7,7 +7,7 @@ import { getPlatforms, getMediators, getStatuses } from "../api/lookups";
 
 export default function ReviewForm({ review, onSuccess }) {
   const toast = useToast();
-  const { register, handleSubmit, control, watch, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, watch, formState: { errors }, reset } = useForm({
     defaultValues: review || {
       orderId: "",
       orderLink: "",
@@ -45,6 +45,13 @@ export default function ReviewForm({ review, onSuccess }) {
   }
   fetchLookups();
 }, []);
+
+  // When review prop arrives (edit flow), sync form values
+  useEffect(() => {
+    if (review) {
+      reset({ ...review });
+    }
+  }, [review, reset]);
 
   const orderedDate = watch("orderedDate");
   const deliveryDate = watch("deliveryDate");

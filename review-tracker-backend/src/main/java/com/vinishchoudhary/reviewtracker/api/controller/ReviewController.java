@@ -6,6 +6,7 @@ import com.vinishchoudhary.reviewtracker.service.ReviewService;
 import com.vinishchoudhary.reviewtracker.service.ReviewHistoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
+import com.vinishchoudhary.reviewtracker.api.dto.PageResponse;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -59,10 +60,23 @@ public class ReviewController {
     }
 
     @PostMapping("/search")
-    public Page<Review> search(@RequestBody ReviewSearchCriteria criteria,
+    public PageResponse<Review> search(@RequestBody ReviewSearchCriteria criteria,
                                @RequestParam(defaultValue = "0") int page,
-                               @RequestParam(defaultValue = "10") int size) {
-        return reviewService.searchReviews(criteria, PageRequest.of(page, size));
+                               @RequestParam(defaultValue = "10") int size,
+                               @RequestParam(required = false, defaultValue = "createdAt") String sort,
+                               @RequestParam(required = false, defaultValue = "DESC") String dir) {
+        Sort.Direction direction = "ASC".equalsIgnoreCase(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Page<Review> result = reviewService.searchReviews(criteria, PageRequest.of(page, size, Sort.by(direction, sort)));
+        PageResponse<Review> resp = new PageResponse<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                sort,
+                dir
+        );
+        return resp;
     }
 
     // ---------- Clone / Copy ----------

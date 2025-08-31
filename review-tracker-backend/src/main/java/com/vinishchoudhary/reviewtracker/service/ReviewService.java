@@ -31,6 +31,7 @@ public class ReviewService {
         if (r.getRefundAmountRupees() == null && r.getAmountRupees() != null && r.getLessRupees() != null) {
             r.setRefundAmountRupees(r.getAmountRupees().subtract(r.getLessRupees()));
         }
+        r.setStatus(computeStatus(r));
         Review saved = reviewRepo.save(r);
         historyService.logChange(saved.getId(), "CREATE", "Created review", null);
         return saved;
@@ -45,8 +46,9 @@ public class ReviewService {
             existing.setProductName(updated.getProductName());
         }
         existing.setOrderId(updated.getOrderId());
+        existing.setOrderLink(updated.getOrderLink());
         existing.setPlatformId(updated.getPlatformId());
-        existing.setStatusId(updated.getStatusId());
+        existing.setDealType(updated.getDealType());
         existing.setMediatorId(updated.getMediatorId());
         existing.setAmountRupees(updated.getAmountRupees());
         existing.setLessRupees(updated.getLessRupees());
@@ -56,8 +58,11 @@ public class ReviewService {
         existing.setOrderedDate(updated.getOrderedDate());
         existing.setDeliveryDate(updated.getDeliveryDate());
         existing.setReviewSubmitDate(updated.getReviewSubmitDate());
+        existing.setReviewAcceptedDate(updated.getReviewAcceptedDate());
+        existing.setRatingSubmittedDate(updated.getRatingSubmittedDate());
         existing.setRefundFormSubmittedDate(updated.getRefundFormSubmittedDate());
         existing.setPaymentReceivedDate(updated.getPaymentReceivedDate());
+        existing.setStatus(computeStatus(existing));
 
         Review saved = reviewRepo.save(existing);
         historyService.logChange(saved.getId(), "UPDATE", "Updated review", changes);
@@ -82,9 +87,10 @@ public class ReviewService {
         Review source = reviewRepo.findById(sourceId).orElseThrow();
         Review copy = Review.builder()
                 .orderId(source.getOrderId() + "-clone")
+                .orderLink(source.getOrderLink())
                 .productName(source.getProductName())
+                .dealType(source.getDealType())
                 .platformId(source.getPlatformId())
-                .statusId(source.getStatusId())
                 .mediatorId(source.getMediatorId())
                 .amountRupees(source.getAmountRupees())
                 .lessRupees(source.getLessRupees())
@@ -92,9 +98,12 @@ public class ReviewService {
                 .orderedDate(source.getOrderedDate())
                 .deliveryDate(source.getDeliveryDate())
                 .reviewSubmitDate(source.getReviewSubmitDate())
+                .reviewAcceptedDate(source.getReviewAcceptedDate())
+                .ratingSubmittedDate(source.getRatingSubmittedDate())
                 .refundFormSubmittedDate(source.getRefundFormSubmittedDate())
                 .paymentReceivedDate(source.getPaymentReceivedDate())
                 .build();
+        copy.setStatus(computeStatus(copy));
         Review saved = reviewRepo.save(copy);
         historyService.logChange(saved.getId(), "CLONE", "Cloned from " + sourceId, null);
         return saved;
@@ -109,8 +118,9 @@ public class ReviewService {
         for (String f : fields) {
             switch (f) {
                 case "productName": tgt.setProductName(src.getProductName()); break;
+                case "orderLink": tgt.setOrderLink(src.getOrderLink()); break;
                 case "platformId": tgt.setPlatformId(src.getPlatformId()); break;
-                case "statusId": tgt.setStatusId(src.getStatusId()); break;
+                case "dealType": tgt.setDealType(src.getDealType()); break;
                 case "mediatorId": tgt.setMediatorId(src.getMediatorId()); break;
                 case "amountRupees": tgt.setAmountRupees(src.getAmountRupees()); break;
                 case "lessRupees": tgt.setLessRupees(src.getLessRupees()); break;
@@ -118,6 +128,8 @@ public class ReviewService {
                     tgt.setOrderedDate(src.getOrderedDate());
                     tgt.setDeliveryDate(src.getDeliveryDate());
                     tgt.setReviewSubmitDate(src.getReviewSubmitDate());
+                    tgt.setReviewAcceptedDate(src.getReviewAcceptedDate());
+                    tgt.setRatingSubmittedDate(src.getRatingSubmittedDate());
                     tgt.setRefundFormSubmittedDate(src.getRefundFormSubmittedDate());
                     tgt.setPaymentReceivedDate(src.getPaymentReceivedDate());
                     break;
@@ -125,6 +137,7 @@ public class ReviewService {
             changes.add(new ReviewHistory.Change(f, null, "copied from " + sourceId));
         }
 
+        tgt.setStatus(computeStatus(tgt));
         Review saved = reviewRepo.save(tgt);
         historyService.logChange(saved.getId(), "COPY", "Copied fields from " + sourceId, changes);
         return saved;
@@ -134,11 +147,18 @@ public class ReviewService {
     public List<Review> bulkUpdate(List<String> ids, Map<String, Object> updates) {
         List<Review> reviews = reviewRepo.findAllById(ids);
         for (Review r : reviews) {
-            if (updates.containsKey("statusId")) r.setStatusId((String) updates.get("statusId"));
             if (updates.containsKey("platformId")) r.setPlatformId((String) updates.get("platformId"));
             if (updates.containsKey("mediatorId")) r.setMediatorId((String) updates.get("mediatorId"));
+            if (updates.containsKey("orderLink")) r.setOrderLink((String) updates.get("orderLink"));
+            if (updates.containsKey("dealType")) r.setDealType((String) updates.get("dealType"));
             if (updates.containsKey("orderedDate")) r.setOrderedDate(LocalDate.parse((String) updates.get("orderedDate")));
             if (updates.containsKey("deliveryDate")) r.setDeliveryDate(LocalDate.parse((String) updates.get("deliveryDate")));
+            if (updates.containsKey("reviewSubmitDate")) r.setReviewSubmitDate(LocalDate.parse((String) updates.get("reviewSubmitDate")));
+            if (updates.containsKey("reviewAcceptedDate")) r.setReviewAcceptedDate(LocalDate.parse((String) updates.get("reviewAcceptedDate")));
+            if (updates.containsKey("ratingSubmittedDate")) r.setRatingSubmittedDate(LocalDate.parse((String) updates.get("ratingSubmittedDate")));
+            if (updates.containsKey("refundFormSubmittedDate")) r.setRefundFormSubmittedDate(LocalDate.parse((String) updates.get("refundFormSubmittedDate")));
+            if (updates.containsKey("paymentReceivedDate")) r.setPaymentReceivedDate(LocalDate.parse((String) updates.get("paymentReceivedDate")));
+            r.setStatus(computeStatus(r));
         }
         return reviewRepo.saveAll(reviews);
     }
@@ -198,6 +218,32 @@ public class ReviewService {
         result.put("totalPaymentReceived", totalReceived);
         result.put("reviewsSubmitted", submitted);
         result.put("reviewsPending", pending);
+        Map<String, Long> statusCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getStatus()).orElse("unknown"), Collectors.counting()));
+        Map<String, Long> platformCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getPlatformId()).orElse("unknown"), Collectors.counting()));
+        Map<String, Long> dealTypeCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getDealType()).orElse("unknown"), Collectors.counting()));
+        result.put("statusCounts", statusCounts);
+        result.put("platformCounts", platformCounts);
+        result.put("dealTypeCounts", dealTypeCounts);
         return result;
+    }
+
+    private String computeStatus(Review r) {
+        if (r.getPaymentReceivedDate() != null) return "payment received";
+        if (r.getRefundFormSubmittedDate() != null) return "refund form submitted";
+        String deal = r.getDealType() == null ? "REVIEW_SUBMISSION" : r.getDealType();
+        switch (deal) {
+            case "REVIEW_PUBLISHED":
+                if (r.getReviewAcceptedDate() != null) return "review accepted";
+                if (r.getReviewSubmitDate() != null) return "review submitted";
+                break;
+            case "RATING_ONLY":
+                if (r.getRatingSubmittedDate() != null) return "rating submitted";
+                break;
+            default: // REVIEW_SUBMISSION
+                if (r.getReviewSubmitDate() != null) return "review submitted";
+        }
+        if (r.getDeliveryDate() != null) return "delivered";
+        if (r.getOrderedDate() != null) return "ordered";
+        return "ordered";
     }
 }

@@ -7,3 +7,4 @@ export const getReview = (id) => axios.get(`${API_BASE}/${id}`);
 export const createReview = (review) => axios.post(API_BASE, review);
 export const updateReview = (id, review) => axios.put(`${API_BASE}/${id}`, review);
 export const deleteReview = (id) => axios.delete(`${API_BASE}/${id}`);
+export const searchReviews = (criteria, params = {}) => axios.post(`${API_BASE}/search`, criteria, { params });

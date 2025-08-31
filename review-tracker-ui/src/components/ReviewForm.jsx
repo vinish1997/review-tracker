@@ -274,13 +274,13 @@ export default function ReviewForm({ review, onSuccess }) {
       {/* Dates */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block font-medium">Ordered Date</label>
+          <label className="block font-medium" title="Set the date the order was placed. Sets status to 'ordered' if later steps are empty.">Ordered Date</label>
           <Controller name="orderedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded" selected={field.value} onChange={field.onChange} dateFormat="yyyy-MM-dd"/>
           }/>
         </div>
         <div>
-          <label className="block font-medium">Delivery Date</label>
+          <label className="block font-medium" title="Set when the item was delivered. Moves status to 'delivered'.">Delivery Date</label>
           <Controller name="deliveryDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
@@ -290,7 +290,7 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
         </div>
         <div>
-          <label className="block font-medium">Review Submit Date</label>
+          <label className={`block font-medium ${dealType === 'RATING_ONLY' ? 'text-gray-400' : ''}`} title="For Review Published/Submission. Moves status to 'review submitted'.">Review Submit Date</label>
           <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
@@ -301,7 +301,7 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
         </div>
         <div>
-          <label className="block font-medium">Review Accepted Date</label>
+          <label className={`block font-medium ${dealType !== 'REVIEW_PUBLISHED' ? 'text-gray-400' : ''}`} title="For Review Published only. Moves status to 'review accepted'.">Review Accepted Date</label>
           <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
@@ -312,7 +312,7 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
         </div>
         <div>
-          <label className="block font-medium">Rating Submitted Date</label>
+          <label className={`block font-medium ${dealType !== 'RATING_ONLY' ? 'text-gray-400' : ''}`} title="For Rating Only. Moves status to 'rating submitted'.">Rating Submitted Date</label>
           <Controller name="ratingSubmittedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
@@ -323,7 +323,7 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
         </div>
         <div>
-          <label className="block font-medium">Refund Form Submitted</label>
+          <label className="block font-medium" title="Set when refund form was submitted. Moves status to 'refund form submitted'.">Refund Form Submitted</label>
           <Controller name="refundFormSubmittedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}
@@ -333,7 +333,7 @@ export default function ReviewForm({ review, onSuccess }) {
           }/>
         </div>
         <div>
-          <label className="block font-medium">Payment Received</label>
+          <label className="block font-medium" title="Set when refund/payment was received. Sets status to 'payment received'.">Payment Received</label>
           <Controller name="paymentReceivedDate" control={control} render={({ field }) =>
             <DatePicker className="border p-2 w-full rounded"
               selected={field.value}

@@ -8,6 +8,7 @@ import {
   deleteMediator,
 } from "../api/lookups";
 import Modal from "../components/Modal";
+import { PlusIcon, PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useToast } from "../components/ToastProvider";
 
 export default function Lookups() {
@@ -114,7 +115,10 @@ export default function Lookups() {
             <label className="block text-sm font-medium">Name</label>
             <input value={pfName} onChange={(e)=>setPfName(e.target.value)} className="border p-2 rounded" placeholder="Platform name" />
           </div>
-          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
+          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded inline-flex items-center gap-2">
+            <PlusIcon className="w-4 h-4"/>
+            <span>Add</span>
+          </button>
         </form>
         {pfErr && <div className="text-red-600 text-sm mb-4">{pfErr}</div>}
         <div className="flex items-center gap-2 mb-2">
@@ -155,7 +159,10 @@ export default function Lookups() {
             <input value={mdPhone} onChange={(e)=>setMdPhone(e.target.value)} className="border p-2 rounded" placeholder="e.g. 919876543210" />
             {mdErrPhone && <div className="text-red-600 text-sm">{mdErrPhone}</div>}
           </div>
-          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
+          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded inline-flex items-center gap-2">
+            <PlusIcon className="w-4 h-4"/>
+            <span>Add</span>
+          </button>
         </form>
         <LookupTable
           items={md.items}
@@ -267,13 +274,21 @@ function LookupTable({ items, columns, editing, onEditChange, onSave, onDelete, 
                 <td className="p-2 space-x-2">
                   {(!modalEdit && edit) ? (
                     <>
-                      <button className="bg-blue-600 text-white px-3 py-1 rounded" onClick={()=> onSave(edit)}>Save</button>
+                      <button className="bg-blue-600 text-white px-3 py-1 rounded inline-flex items-center gap-1" onClick={()=> onSave(edit)}>
+                        Save
+                      </button>
                       <button className="px-3 py-1 border rounded" onClick={cancelEdit}>Cancel</button>
                     </>
                   ) : (
                     <>
-                      <button className="bg-yellow-500 text-white px-3 py-1 rounded" onClick={()=> modalEdit ? onEditRow?.(row) : startEdit(row)}>Edit</button>
-                      <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={()=> { if (window.confirm('Delete this item?')) onDelete(row.id); }}>Delete</button>
+                      <button className="bg-yellow-500 text-white px-3 py-1 rounded inline-flex items-center gap-1" onClick={()=> modalEdit ? onEditRow?.(row) : startEdit(row)}>
+                        <PencilSquareIcon className="w-4 h-4"/>
+                        Edit
+                      </button>
+                      <button className="bg-red-600 text-white px-3 py-1 rounded inline-flex items-center gap-1" onClick={()=> { if (window.confirm('Delete this item?')) onDelete(row.id); }}>
+                        <TrashIcon className="w-4 h-4"/>
+                        Delete
+                      </button>
                     </>
                   )}
                 </td>

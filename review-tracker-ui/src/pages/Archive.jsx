@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { searchReviews } from "../api/reviews";
 import { getPlatforms, getMediators } from "../api/lookups";
+import { useNavigate } from "react-router-dom";
+import { EyeIcon } from "@heroicons/react/24/outline";
 
 export default function Archive() {
   const [items, setItems] = useState([]);
@@ -11,8 +13,11 @@ export default function Archive() {
   const [search, setSearch] = useState("");
   const [platformId, setPlatformId] = useState("");
   const [mediatorId, setMediatorId] = useState("");
+  const [platforms, setPlatforms] = useState([]);
+  const [mediators, setMediators] = useState([]);
   const [platformMap, setPlatformMap] = useState({});
   const [mediatorMap, setMediatorMap] = useState({});
+  const navigate = useNavigate();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -25,8 +30,12 @@ export default function Archive() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     Promise.all([getPlatforms(), getMediators()]).then(([p, m]) => {
-      setPlatformMap(Object.fromEntries((p.data||[]).map(x=>[x.id, x.name])));
-      setMediatorMap(Object.fromEntries((m.data||[]).map(x=>[x.id, x.name])));
+      const pItems = p.data || [];
+      const mItems = m.data || [];
+      setPlatforms(pItems);
+      setMediators(mItems);
+      setPlatformMap(Object.fromEntries(pItems.map(x=>[x.id, x.name])));
+      setMediatorMap(Object.fromEntries(mItems.map(x=>[x.id, x.name])));
     });
   }, []);
 
@@ -42,11 +51,17 @@ export default function Archive() {
         </div>
         <div>
           <label className="block text-sm font-medium">Platform</label>
-          <input value={platformId} onChange={(e)=> { setPlatformId(e.target.value); setPage(0);} } className="border p-2 rounded" placeholder="Platform ID" />
+          <select value={platformId} onChange={(e)=> { setPlatformId(e.target.value); setPage(0);} } className="border p-2 rounded min-w-48">
+            <option value="">All</option>
+            {platforms.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium">Mediator</label>
-          <input value={mediatorId} onChange={(e)=> { setMediatorId(e.target.value); setPage(0);} } className="border p-2 rounded" placeholder="Mediator ID" />
+          <select value={mediatorId} onChange={(e)=> { setMediatorId(e.target.value); setPage(0);} } className="border p-2 rounded min-w-48">
+            <option value="">All</option>
+            {mediators.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button onClick={()=> exportCsv(items, platformMap, mediatorMap)} className="px-3 py-1 border rounded">Export CSV</button>
@@ -67,6 +82,7 @@ export default function Archive() {
             <th className="p-2 border">Amount</th>
             <th className="p-2 border">Refund</th>
             <th className="p-2 border">Payment Date</th>
+            <th className="p-2 border">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -79,10 +95,15 @@ export default function Archive() {
               <td className="p-2">₹{i.amountRupees}</td>
               <td className="p-2">₹{i.refundAmountRupees}</td>
               <td className="p-2">{i.paymentReceivedDate || '-'}</td>
+              <td className="p-2">
+                <button onClick={()=> navigate(`/reviews/view/${i.id}`)} className="px-2 py-1 border rounded inline-flex items-center gap-1">
+                  <EyeIcon className="w-4 h-4"/> Details
+                </button>
+              </td>
             </tr>
           ))}
           {items.length === 0 && (
-            <tr><td className="p-2" colSpan="5">No archived reviews.</td></tr>
+            <tr><td className="p-2" colSpan="8">No archived reviews.</td></tr>
           )}
         </tbody>
       </table>

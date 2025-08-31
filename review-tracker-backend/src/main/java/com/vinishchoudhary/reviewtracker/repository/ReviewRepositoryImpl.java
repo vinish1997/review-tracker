@@ -31,11 +31,19 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         List<Criteria> filters = new ArrayList<>();
 
         if (criteria.getPlatformId() != null) filters.add(Criteria.where("platformId").is(criteria.getPlatformId()));
+        if (criteria.getPlatformIdIn() != null && !criteria.getPlatformIdIn().isEmpty())
+            filters.add(Criteria.where("platformId").in(criteria.getPlatformIdIn()));
 
         if (criteria.getStatus() != null) filters.add(Criteria.where("status").is(criteria.getStatus()));
+        if (criteria.getStatusIn() != null && !criteria.getStatusIn().isEmpty())
+            filters.add(Criteria.where("status").in(criteria.getStatusIn()));
 
         if (criteria.getMediatorId() != null) filters.add(Criteria.where("mediatorId").is(criteria.getMediatorId()));
+        if (criteria.getMediatorIdIn() != null && !criteria.getMediatorIdIn().isEmpty())
+            filters.add(Criteria.where("mediatorId").in(criteria.getMediatorIdIn()));
         if (criteria.getDealType() != null) filters.add(Criteria.where("dealType").is(criteria.getDealType()));
+        if (criteria.getDealTypeIn() != null && !criteria.getDealTypeIn().isEmpty())
+            filters.add(Criteria.where("dealType").in(criteria.getDealTypeIn()));
 
         if (criteria.getProductNameContains() != null)
             filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));

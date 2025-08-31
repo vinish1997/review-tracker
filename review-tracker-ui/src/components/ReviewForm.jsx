@@ -27,6 +27,7 @@ export default function ReviewForm({ review, onSuccess }) {
   const [platforms, setPlatforms] = useState([]);
   const [mediators, setMediators] = useState([]);
   const [statuses, setStatuses] = useState([]);
+  const [lookupsReady, setLookupsReady] = useState(false);
 
   useEffect(() => {
   async function fetchLookups() {
@@ -39,6 +40,7 @@ export default function ReviewForm({ review, onSuccess }) {
       setPlatforms(pRes.data);
       setMediators(mRes.data);
       setStatuses(sRes.data);
+      setLookupsReady(true);
     } catch (err) {
       console.error("Lookup fetch failed", err);
     }
@@ -64,6 +66,19 @@ export default function ReviewForm({ review, onSuccess }) {
   const amtNum = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
   const lessNum = typeof lessValue === 'number' ? lessValue : parseFloat(lessValue ?? '0');
   const refundPreview = (isFinite(amtNum) ? amtNum : 0) - (isFinite(lessNum) ? lessNum : 0);
+
+  // Ensure selects show correct values when editing and lookups are loaded
+  useEffect(() => {
+    if (review && lookupsReady) {
+      // Only reset the fields that can be affected by lookups
+      reset({
+        ...review,
+        platformId: review.platformId ?? "",
+        mediatorId: review.mediatorId ?? "",
+        statusId: review.statusId ?? "",
+      });
+    }
+  }, [review, lookupsReady, reset]);
 
   const onSubmit = async (data) => {
     // Ensure refund is computed as amount - less when submitting
@@ -147,6 +162,7 @@ export default function ReviewForm({ review, onSuccess }) {
         <div>
           <label className="block font-medium">Status</label>
           <select {...register("statusId", { required: "Status is required" })} className="border p-2 w-full rounded">
+            <option value="">Select</option>
             {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           {errors.statusId && <span className="text-red-500 text-sm">{errors.statusId.message}</span>}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getReview } from "../api/reviews";
+import { getReview, updateReview } from "../api/reviews";
+import { getPlatforms, getMediators } from "../api/lookups";
 import axios from "axios";
 
 export default function ReviewDetails() {
@@ -8,9 +9,16 @@ export default function ReviewDetails() {
   const navigate = useNavigate();
   const [review, setReview] = useState(null);
   const [history, setHistory] = useState(null);
+  const [platformMap, setPlatformMap] = useState({});
+  const [mediatorMap, setMediatorMap] = useState({});
+  const [nextDate, setNextDate] = useState(null);
 
   useEffect(() => {
     getReview(id).then(res => setReview(res.data));
+    Promise.all([getPlatforms(), getMediators()]).then(([p, m]) => {
+      setPlatformMap(Object.fromEntries((p.data||[]).map(x=>[x.id, x.name])));
+      setMediatorMap(Object.fromEntries((m.data||[]).map(x=>[x.id, x.name])));
+    });
   }, [id]);
 
   const loadHistory = async () => {
@@ -19,6 +27,39 @@ export default function ReviewDetails() {
   };
 
   if (!review) return <p>Loading...</p>;
+
+  const seq = (() => {
+    const base = ['orderedDate','deliveryDate'];
+    if ((review.dealType || 'REVIEW_SUBMISSION') === 'REVIEW_PUBLISHED') return [...base,'reviewSubmitDate','reviewAcceptedDate','refundFormSubmittedDate','paymentReceivedDate'];
+    if ((review.dealType || 'REVIEW_SUBMISSION') === 'RATING_ONLY') return [...base,'ratingSubmittedDate','refundFormSubmittedDate','paymentReceivedDate'];
+    return [...base,'reviewSubmitDate','refundFormSubmittedDate','paymentReceivedDate'];
+  })();
+  const nf = (() => {
+    const r = review;
+    if (!r.orderedDate) return 'orderedDate';
+    if (!r.deliveryDate) return 'deliveryDate';
+    if ((r.dealType||'REVIEW_SUBMISSION')==='REVIEW_PUBLISHED') {
+      if (!r.reviewSubmitDate) return 'reviewSubmitDate';
+      if (!r.reviewAcceptedDate) return 'reviewAcceptedDate';
+    } else if ((r.dealType||'REVIEW_SUBMISSION')==='RATING_ONLY') {
+      if (!r.ratingSubmittedDate) return 'ratingSubmittedDate';
+    } else {
+      if (!r.reviewSubmitDate) return 'reviewSubmitDate';
+    }
+    if (!r.refundFormSubmittedDate) return 'refundFormSubmittedDate';
+    if (!r.paymentReceivedDate) return 'paymentReceivedDate';
+    return null;
+  })();
+
+  const saveNext = async () => {
+    if (!nf || !nextDate) return;
+    const payload = { ...review, [nf]: nextDate };
+    const idx = seq.indexOf(nf);
+    seq.slice(idx+1).forEach(k => payload[k] = null);
+    const res = await updateReview(review.id, payload);
+    setReview(res.data);
+    setNextDate(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -36,19 +77,29 @@ export default function ReviewDetails() {
         <Field label="Product" value={review.productName} />
         <Field label="Deal Type" value={review.dealType} />
         <Field label="Status" value={review.status} />
-        <Field label="Platform" value={review.platformId} />
-        <Field label="Mediator" value={review.mediatorId} />
+        <Field label="Platform" value={platformMap[review.platformId] || review.platformId} />
+        <Field label="Mediator" value={mediatorMap[review.mediatorId] || review.mediatorId} />
         <Field label="Amount" value={review.amountRupees} />
         <Field label="Less" value={review.lessRupees} />
         <Field label="Refund" value={review.refundAmountRupees} />
-        <Field label="Ordered" value={review.orderedDate} />
-        <Field label="Delivered" value={review.deliveryDate} />
-        <Field label="Review Submitted" value={review.reviewSubmitDate} />
-        <Field label="Review Accepted" value={review.reviewAcceptedDate} />
-        <Field label="Rating Submitted" value={review.ratingSubmittedDate} />
-        <Field label="Refund Form" value={review.refundFormSubmittedDate} />
-        <Field label="Payment Received" value={review.paymentReceivedDate} />
+        {review.orderedDate && <Field label="Ordered" value={review.orderedDate} />} 
+        {review.deliveryDate && <Field label="Delivered" value={review.deliveryDate} />}
+        {review.dealType !== 'RATING_ONLY' && review.reviewSubmitDate && <Field label="Review Submitted" value={review.reviewSubmitDate} />}
+        {review.dealType === 'REVIEW_PUBLISHED' && review.reviewAcceptedDate && <Field label="Review Accepted" value={review.reviewAcceptedDate} />}
+        {review.dealType === 'RATING_ONLY' && review.ratingSubmittedDate && <Field label="Rating Submitted" value={review.ratingSubmittedDate} />}
+        {review.refundFormSubmittedDate && <Field label="Refund Form" value={review.refundFormSubmittedDate} />}
+        {review.paymentReceivedDate && <Field label="Payment Received" value={review.paymentReceivedDate} />}
       </div>
+
+      {nf && (
+        <div className="bg-white p-4 rounded shadow flex items-end gap-3">
+          <div>
+            <div className="text-sm text-gray-600">Advance: {nf.replace(/([A-Z])/g,' $1')}</div>
+            <input type="date" className="border p-2 rounded" value={nextDate ? new Date(nextDate).toISOString().slice(0,10) : ''} onChange={(e)=> setNextDate(e.target.value ? new Date(e.target.value) : null)} />
+          </div>
+          <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={saveNext} disabled={!nextDate}>Save</button>
+        </div>
+      )}
 
       {history && (
         <div className="bg-white p-4 rounded shadow">

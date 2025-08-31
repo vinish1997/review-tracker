@@ -66,7 +66,8 @@ export default function ReviewForm({ review, onSuccess }) {
   const amountValue = watch("amountRupees");
   const lessValue = watch("lessRupees");
   const dealType = watch("dealType");
-  const [showRelevantOnly, setShowRelevantOnly] = useState(true);
+  // render only current step input; previous steps as summaries
+  const [editStep, setEditStep] = useState(null);
 
   // Computed refund preview
   const amtNum = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
@@ -91,7 +92,13 @@ export default function ReviewForm({ review, onSuccess }) {
     return "ordered";
   })();
 
-  // Next date field to set for advancing status
+  // Sequence and next date field to set for advancing status
+  const stepSequence = (() => {
+    const base = ['orderedDate', 'deliveryDate'];
+    if ((dealType || 'REVIEW_SUBMISSION') === 'REVIEW_PUBLISHED') return [...base, 'reviewSubmitDate', 'reviewAcceptedDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
+    if ((dealType || 'REVIEW_SUBMISSION') === 'RATING_ONLY') return [...base, 'ratingSubmittedDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
+    return [...base, 'reviewSubmitDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
+  })();
   const nextField = (() => {
     if (!orderedDate) return "orderedDate";
     if (!deliveryDate) return "deliveryDate";
@@ -108,6 +115,32 @@ export default function ReviewForm({ review, onSuccess }) {
     if (!paymentReceivedDate) return "paymentReceivedDate";
     return null;
   })();
+
+  const labelOf = (k) => ({
+    orderedDate: 'Ordered Date',
+    deliveryDate: 'Delivery Date',
+    reviewSubmitDate: 'Review Submit Date',
+    reviewAcceptedDate: 'Review Accepted Date',
+    ratingSubmittedDate: 'Rating Submitted Date',
+    refundFormSubmittedDate: 'Refund Form Submitted',
+    paymentReceivedDate: 'Payment Received',
+  })[k] || k;
+
+  const valueOf = (k) => ({
+    orderedDate, deliveryDate, reviewSubmitDate, reviewAcceptedDate, ratingSubmittedDate, refundFormSubmittedDate, paymentReceivedDate,
+  })[k];
+
+  const resetFrom = (k) => {
+    const idx = stepSequence.indexOf(k);
+    if (idx === -1) return;
+    stepSequence.slice(idx).forEach(step => setValue(step, null, { shouldDirty: true }));
+  };
+
+  const resetAfter = (k) => {
+    const idx = stepSequence.indexOf(k);
+    if (idx === -1) return;
+    stepSequence.slice(idx + 1).forEach(step => setValue(step, null, { shouldDirty: true }));
+  };
 
   const advanceStatus = () => {
     const today = new Date();
@@ -274,121 +307,35 @@ export default function ReviewForm({ review, onSuccess }) {
       </div>
 
       {/* Dates */}
-      <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded shadow-sm">
-        <div className="col-span-2 flex items-center gap-2 text-sm text-gray-600 mb-2">
-          <input id="relevantOnly" type="checkbox" checked={showRelevantOnly} onChange={(e)=> setShowRelevantOnly(e.target.checked)} />
-          <label htmlFor="relevantOnly">Show only relevant steps</label>
-        </div>
-        <div>
-          <label className="block font-medium" title="Set the date the order was placed. Sets status to 'ordered' if later steps are empty.">
-            <span className="inline-flex items-center gap-1">Ordered Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
-              <button type="button" onClick={() => setValue('orderedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
-            </span>
-          </label>
-          <Controller name="orderedDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded" selected={field.value} onChange={field.onChange} dateFormat="yyyy-MM-dd"/>
-          }/>
-        </div>
-        <div>
-          <label className="block font-medium" title="Set when the item was delivered. Moves status to 'delivered'.">
-            <span className="inline-flex items-center gap-1">Delivery Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
-              <button type="button" onClick={() => setValue('deliveryDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
-            </span>
-          </label>
-          <Controller name="deliveryDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded"
-              selected={field.value}
-              onChange={field.onChange}
-              minDate={orderedDate}
-              dateFormat="yyyy-MM-dd"/>
-          }/>
-        </div>
-        {(showRelevantOnly ? dealType !== 'RATING_ONLY' : true) && (
-        <div>
-          <label className={`block font-medium ${(dealType === 'RATING_ONLY' || !deliveryDate) ? 'text-gray-400' : ''}`} title="For Review Published/Submission. Moves status to 'review submitted'.">
-            <span className="inline-flex items-center gap-1">Review Submit Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
-              <button type="button" onClick={() => setValue('reviewSubmitDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
-            </span>
-          </label>
-          <Controller name="reviewSubmitDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded"
-              selected={field.value}
-              onChange={field.onChange}
-              minDate={deliveryDate}
-              disabled={dealType === 'RATING_ONLY' || !deliveryDate}
-              dateFormat="yyyy-MM-dd"/>
-          }/>
-          {(dealType === 'RATING_ONLY' || !deliveryDate) && <div className="text-xs text-gray-500">Enable by setting Delivery Date and using Review Published/Submission.</div>}
-        </div>
-        )}
-        {(showRelevantOnly ? dealType === 'REVIEW_PUBLISHED' : true) && (
-        <div>
-          <label className={`block font-medium ${(dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate) ? 'text-gray-400' : ''}`} title="For Review Published only. Moves status to 'review accepted'.">
-            <span className="inline-flex items-center gap-1">Review Accepted Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
-              <button type="button" onClick={() => setValue('reviewAcceptedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
-            </span>
-          </label>
-          <Controller name="reviewAcceptedDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded"
-              selected={field.value}
-              onChange={field.onChange}
-              minDate={reviewSubmitDate}
-              disabled={dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate}
-              dateFormat="yyyy-MM-dd"/>
-          }/>
-          {(dealType !== 'REVIEW_PUBLISHED' || !reviewSubmitDate) && <div className="text-xs text-gray-500">Enable by using Review Published and setting Review Submit Date.</div>}
-        </div>
-        )}
-        {(showRelevantOnly ? dealType === 'RATING_ONLY' : true) && (
-        <div>
-          <label className={`block font-medium ${(dealType !== 'RATING_ONLY' || !deliveryDate) ? 'text-gray-400' : ''}`} title="For Rating Only. Moves status to 'rating submitted'.">
-            <span className="inline-flex items-center gap-1">Rating Submitted Date <InformationCircleIcon className="w-4 h-4 text-gray-400" />
-              <button type="button" onClick={() => setValue('ratingSubmittedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
-            </span>
-          </label>
-          <Controller name="ratingSubmittedDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded"
-              selected={field.value}
-              onChange={field.onChange}
-              minDate={deliveryDate}
-              disabled={dealType !== 'RATING_ONLY' || !deliveryDate}
-              dateFormat="yyyy-MM-dd"/>
-          }/>
-          {(dealType !== 'RATING_ONLY' || !deliveryDate) && <div className="text-xs text-gray-500">Enable by using Rating Only and setting Delivery Date.</div>}
-        </div>
-        )}
-        <div>
-          <label className={`block font-medium ${!(reviewAcceptedDate || reviewSubmitDate || ratingSubmittedDate) ? 'text-gray-400' : ''}`} title="Set when refund form was submitted. Moves status to 'refund form submitted'.">
-            <span className="inline-flex items-center gap-1">Refund Form Submitted <InformationCircleIcon className="w-4 h-4 text-gray-400" />
-              <button type="button" onClick={() => setValue('refundFormSubmittedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
-            </span>
-          </label>
-          <Controller name="refundFormSubmittedDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded"
-              selected={field.value}
-              onChange={field.onChange}
-              minDate={reviewSubmitDate}
-              disabled={!(reviewAcceptedDate || reviewSubmitDate || ratingSubmittedDate)}
-              dateFormat="yyyy-MM-dd"/>
-          }/>
-          {!(reviewAcceptedDate || reviewSubmitDate || ratingSubmittedDate) && <div className="text-xs text-gray-500">Enable by setting Review Accepted/Submitted or Rating Submitted first.</div>}
-        </div>
-        <div>
-          <label className={`block font-medium ${!refundFormSubmittedDate ? 'text-gray-400' : ''}`} title="Set when refund/payment was received. Sets status to 'payment received'.">
-            <span className="inline-flex items-center gap-1">Payment Received <InformationCircleIcon className="w-4 h-4 text-gray-400" />
-              <button type="button" onClick={() => setValue('paymentReceivedDate', null, { shouldDirty: true })} className="ml-2 text-xs text-blue-600 underline">Reset</button>
-            </span>
-          </label>
-          <Controller name="paymentReceivedDate" control={control} render={({ field }) =>
-            <DatePicker className="border p-2 w-full rounded"
-              selected={field.value}
-              onChange={field.onChange}
-              minDate={refundFormSubmittedDate}
-              disabled={!refundFormSubmittedDate}
-              dateFormat="yyyy-MM-dd"/>
-          }/>
-          {!refundFormSubmittedDate && <div className="text-xs text-gray-500">Enable by setting Refund Form Submitted first.</div>}
-        </div>
+      <div className="space-y-3 bg-white p-4 rounded shadow-sm">
+        {stepSequence.map((step) => {
+          const val = valueOf(step);
+          if (val && editStep !== step) {
+            return (
+              <div key={step} className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs uppercase text-gray-500">{labelOf(step)}</div>
+                  <div className="font-medium">{String(val)}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={()=> setEditStep(step)} className="text-xs text-gray-700 underline">Edit</button>
+                  <button type="button" onClick={()=> resetFrom(step)} className="text-xs text-blue-600 underline">Reset</button>
+                </div>
+              </div>
+            );
+          }
+          if (nextField === step || editStep === step) {
+            return (
+              <div key={step}>
+                <label className="block font-medium">{labelOf(step)}</label>
+                <Controller name={step} control={control} render={({ field }) => (
+                  <DatePicker className="border p-2 w-full rounded" selected={field.value} onChange={(d)=> { field.onChange(d); resetAfter(step); setEditStep(null); }} dateFormat="yyyy-MM-dd"/>
+                )}/>
+              </div>
+            );
+          }
+          return null;
+        })}
       </div>
 
       {/* Submit */}

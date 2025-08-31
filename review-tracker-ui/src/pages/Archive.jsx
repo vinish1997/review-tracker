@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { searchReviews } from "../api/reviews";
+import { getPlatforms, getMediators } from "../api/lookups";
 
 export default function Archive() {
   const [items, setItems] = useState([]);
@@ -10,6 +11,8 @@ export default function Archive() {
   const [search, setSearch] = useState("");
   const [platformId, setPlatformId] = useState("");
   const [mediatorId, setMediatorId] = useState("");
+  const [platformMap, setPlatformMap] = useState({});
+  const [mediatorMap, setMediatorMap] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -20,6 +23,12 @@ export default function Archive() {
   }, [page, size, search, platformId, mediatorId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    Promise.all([getPlatforms(), getMediators()]).then(([p, m]) => {
+      setPlatformMap(Object.fromEntries((p.data||[]).map(x=>[x.id, x.name])));
+      setMediatorMap(Object.fromEntries((m.data||[]).map(x=>[x.id, x.name])));
+    });
+  }, []);
 
   if (loading) return <p>Loading...</p>;
 
@@ -40,6 +49,7 @@ export default function Archive() {
           <input value={mediatorId} onChange={(e)=> { setMediatorId(e.target.value); setPage(0);} } className="border p-2 rounded" placeholder="Mediator ID" />
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <button onClick={()=> exportCsv(items, platformMap, mediatorMap)} className="px-3 py-1 border rounded">Export CSV</button>
           <button disabled={page<=0} onClick={()=> setPage(p=>p-1)} className="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
           <button disabled={page>=totalPages-1} onClick={()=> setPage(p=>p+1)} className="px-3 py-1 border rounded disabled:opacity-50">Next</button>
           <select value={size} onChange={(e)=> { setSize(Number(e.target.value)); setPage(0);} } className="px-2 py-1 border rounded">
@@ -52,6 +62,8 @@ export default function Archive() {
           <tr className="bg-gray-200 text-left">
             <th className="p-2 border">Order ID</th>
             <th className="p-2 border">Product</th>
+            <th className="p-2 border">Platform</th>
+            <th className="p-2 border">Mediator</th>
             <th className="p-2 border">Amount</th>
             <th className="p-2 border">Refund</th>
             <th className="p-2 border">Payment Date</th>
@@ -62,6 +74,8 @@ export default function Archive() {
             <tr key={i.id} className="border-b">
               <td className="p-2">{i.orderId}</td>
               <td className="p-2">{i.productName}</td>
+              <td className="p-2">{platformMap[i.platformId] || i.platformId}</td>
+              <td className="p-2">{mediatorMap[i.mediatorId] || i.mediatorId}</td>
               <td className="p-2">₹{i.amountRupees}</td>
               <td className="p-2">₹{i.refundAmountRupees}</td>
               <td className="p-2">{i.paymentReceivedDate || '-'}</td>
@@ -74,4 +88,25 @@ export default function Archive() {
       </table>
     </div>
   );
+}
+
+function exportCsv(items, platformMap, mediatorMap) {
+  const header = ['orderId','productName','platform','mediator','amount','refund','paymentDate'];
+  const rows = items.map(i => [
+    i.orderId,
+    i.productName,
+    platformMap[i.platformId] || i.platformId || '',
+    mediatorMap[i.mediatorId] || i.mediatorId || '',
+    i.amountRupees ?? '',
+    i.refundAmountRupees ?? '',
+    i.paymentReceivedDate ?? ''
+  ]);
+  const csv = [header, ...rows].map(r => r.map(v => String(v).replaceAll('"','""')).map(v => /[,"]/.test(v) ? `"${v}"` : v).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'archive.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }

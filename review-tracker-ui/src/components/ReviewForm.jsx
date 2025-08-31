@@ -17,7 +17,7 @@ export default function ReviewForm({ review, onSuccess }) {
       statusId: "",
       amountRupees: 0,
       lessRupees: 0,
-      refundAmountRupees: 0,
+      
       orderedDate: null,
       deliveryDate: null,
       reviewSubmitDate: null,
@@ -61,6 +61,14 @@ export default function ReviewForm({ review, onSuccess }) {
   const refundPreview = (isFinite(amtNum) ? amtNum : 0) - (isFinite(lessNum) ? lessNum : 0);
 
   const onSubmit = async (data) => {
+    // Ensure refund is computed as amount - less when submitting
+    const amt = typeof data.amountRupees === 'number' ? data.amountRupees : parseFloat(data.amountRupees ?? '0');
+    const less = typeof data.lessRupees === 'number' ? data.lessRupees : parseFloat(data.lessRupees ?? '0');
+    if (Number.isFinite(amt) && Number.isFinite(less)) {
+      data.refundAmountRupees = amt - less;
+    } else {
+      delete data.refundAmountRupees;
+    }
     try {
       if (review) {
         await updateReview(review.id, data);

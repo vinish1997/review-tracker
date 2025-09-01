@@ -3,7 +3,7 @@ import DatePicker from "react-datepicker";
 import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createReview, updateReview } from "../api/reviews";
-import { useToast } from "./ToastProvider";
+import useToast from "./useToast";
 import { getPlatforms, getMediators } from "../api/lookups";
 
 export default function ReviewForm({ review, initialValues, onSuccess, onCancel }) {
@@ -30,8 +30,6 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
 
   const [platforms, setPlatforms] = useState([]);
   const [mediators, setMediators] = useState([]);
-  const [statuses, setStatuses] = useState([]);
-  const [mediatorQuery, setMediatorQuery] = useState("");
   const [lookupsReady, setLookupsReady] = useState(false);
   const [stayAfterSave, setStayAfterSave] = useState(false);
   const [saveAsNew, setSaveAsNew] = useState(false);
@@ -47,7 +45,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       ]);
       setPlatforms(pRes.data);
       setMediators(mRes.data);
-      setStatuses([]);
+      // statuses removed
       setLookupsReady(true);
     } catch (err) {
       console.error("Lookup fetch failed", err);
@@ -61,7 +59,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     const onKey = (e) => { if (e.key === 'Escape' && onCancel) { toast.show('Cancelled','info'); onCancel(); } };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, [onCancel, toast]);
 
   // When review prop arrives (edit flow), sync form values
   useEffect(() => {
@@ -189,6 +187,10 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     try {
       const asNew = opts.asNew ?? saveAsNew;
       const stay = opts.stay ?? stayAfterSave;
+      // include version for optimistic locking when updating
+      if (review && review.version != null) {
+        data.version = review.version;
+      }
       if (review && !asNew) {
         await updateReview(review.id, data);
         toast.show("Review updated", "success");
@@ -206,15 +208,15 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       onSuccess?.();
     } catch (err) {
       console.error("Error saving review", err);
-      toast.show("Error saving review", "error");
+      if (err?.response?.status === 409) {
+        toast.show("This review was updated elsewhere. Please reload.", "error");
+      } else {
+        toast.show("Error saving review", "error");
+      }
     }
   };
 
-  const filteredMediators = useMemo(() => {
-    const q = mediatorQuery.trim().toLowerCase();
-    if (!q) return mediators;
-    return mediators.filter(m => (m.name||'').toLowerCase().includes(q) || (m.phone||'').toLowerCase().includes(q));
-  }, [mediators, mediatorQuery]);
+  // mediator quick filter removed (unused)
 
   const fmtDate = (v) => {
     if (!v) return "-";
@@ -223,17 +225,17 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" onKeyDown={(e)=> { if (e.key === 'Escape' && onCancel) { e.preventDefault(); toast.show('Cancelled','info'); onCancel(); } }}>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" onKeyDown={(e)=> { if (e.key === 'Escape' && onCancel) { e.preventDefault(); toast.show('Cancelled','info'); onCancel(); } }}>
       {/* Order ID */}
       <div>
-        <label className="block font-medium">Order ID</label>
+        <label className="block text-sm font-medium text-gray-700">Order ID</label>
         <input
           ref={firstFieldRef}
           {...register("orderId", {
             required: true,
             validate: (v) => (v ?? "").trim().length > 0 || "Order ID cannot be blank"
           })}
-          className={`border p-2 w-full rounded ${errors.orderId ? 'border-red-500' : ''}`}
+          className={`w-full rounded-md border ${errors.orderId ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
         />
         {errors.orderId && (
           <span className="text-red-500 text-sm">{errors.orderId.message || "Order ID is required."}</span>
@@ -242,18 +244,18 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
 
       {/* Order Link */}
       <div>
-        <label className="block font-medium">Order Link</label>
+        <label className="block text-sm font-medium text-gray-700">Order Link</label>
         <input {...register("orderLink", { required: true, pattern: /^https?:\/\/.+$/ })}
-               className={`border p-2 w-full rounded ${errors.orderLink ? 'border-red-500' : ''}`}/>
+               className={`w-full rounded-md border ${errors.orderLink ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}/>
         {errors.orderLink && <span className="text-red-500 text-sm">Valid URL required.</span>}
       </div>
 
       {/* Product Name */}
       <div>
-        <label className="block font-medium">Product Name</label>
+        <label className="block text-sm font-medium text-gray-700">Product Name</label>
         <input
           {...register("productName", { required: "Product name is required" })}
-          className={`border p-2 w-full rounded ${errors.productName ? 'border-red-500' : ''}`}
+          className={`w-full rounded-md border ${errors.productName ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
         />
         {errors.productName && (
           <span className="text-red-500 text-sm">{errors.productName.message}</span>
@@ -261,10 +263,10 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       </div>
 
       {/* Deal Type & Dropdowns */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block font-medium">Deal Type</label>
-          <select {...register("dealType", { required: "Deal type is required" })} className={`border p-2 w-full rounded ${errors.dealType ? 'border-red-500' : ''}`}>
+          <label className="block text-sm font-medium text-gray-700">Deal Type</label>
+          <select {...register("dealType", { required: "Deal type is required" })} className={`w-full rounded-md border ${errors.dealType ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}>
             <option value="">Select</option>
             <option value="REVIEW_PUBLISHED">Review Published</option>
             <option value="REVIEW_SUBMISSION">Review Submission</option>
@@ -273,7 +275,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
           {errors.dealType && <span className="text-red-500 text-sm">{errors.dealType.message}</span>}
         </div>
         <div>
-          <label className="block font-medium">Platform</label>
+          <label className="block text-sm font-medium text-gray-700">Platform</label>
           <Controller
             name="platformId"
             control={control}
@@ -290,7 +292,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
           {errors.platformId && <span className="text-red-500 text-sm">{errors.platformId.message}</span>}
         </div>
         <div>
-          <label className="block font-medium">Mediator</label>
+          <label className="block text-sm font-medium text-gray-700">Mediator</label>
           <Controller
             name="mediatorId"
             control={control}
@@ -309,9 +311,9 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       </div>
 
       {/* Amount & Less */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block font-medium">Amount</label>
+          <label className="block text-sm font-medium text-gray-700">Amount</label>
           <input
             type="number"
             step="0.01"
@@ -320,12 +322,12 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
               min: { value: 0, message: "Amount cannot be negative" },
               valueAsNumber: true,
             })}
-            className={`border p-2 w-full rounded ${errors.amountRupees ? 'border-red-500' : ''}`}
+            className={`w-full rounded-md border ${errors.amountRupees ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
           />
           {errors.amountRupees && <span className="text-red-500 text-sm">{errors.amountRupees.message}</span>}
         </div>
         <div>
-          <label className="block font-medium">Less</label>
+          <label className="block text-sm font-medium text-gray-700">Less</label>
           <input
             type="number"
             step="0.01"
@@ -339,7 +341,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
               },
               valueAsNumber: true,
             })}
-            className={`border p-2 w-full rounded ${errors.lessRupees ? 'border-red-500' : ''}`}
+            className={`w-full rounded-md border ${errors.lessRupees ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
           />
           {errors.lessRupees && <span className="text-red-500 text-sm">{errors.lessRupees.message}</span>}
         </div>
@@ -362,7 +364,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       </div>
 
       {/* Dates */}
-      <div className="space-y-3 bg-gray-50 p-4 rounded border">
+      <div className="space-y-3 bg-gray-50 p-4 rounded-md border border-gray-200">
         {stepSequence.map((step, idx) => {
           const val = valueOf(step);
           if (val && editStep !== step) {
@@ -386,10 +388,10 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
           if (nextField === step || editStep === step) {
             return (
               <div key={step}>
-                <label className="block font-medium inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-4 h-4 text-gray-400" title={tipOf(step)} /></label>
+                <label className="block text-sm font-medium text-gray-700 inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-4 h-4 text-gray-400" title={tipOf(step)} /></label>
                 <Controller name={step} control={control} render={({ field }) => (
                   <DatePicker
-                    className="border p-2 w-full rounded"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     selected={field.value}
                     disabled={!dealType}
                     onChange={(d)=> {
@@ -417,16 +419,16 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       {/* Submit */}
       <div className="flex justify-end gap-2 pt-2">
         {onCancel && (
-          <button type="button" className="px-3 py-2 border rounded" onClick={onCancel}>Cancel</button>
+          <button type="button" className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700" onClick={onCancel}>Cancel</button>
         )}
         <button
           type="button"
-          className="px-3 py-2 border rounded"
+          className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
           onClick={handleSubmit((form)=> onSubmit(form, { stay: true, asNew: !!review }))}
         >
           Save & Add Another
         </button>
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+        <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow">
           {review ? "Update Review" : "Create Review"}
         </button>
       </div>
@@ -505,8 +507,8 @@ function MediatorSelect({ value, onChange, items, error }) {
   };
   return (
     <div className="relative" ref={ref}>
-      <button type="button" className={`w-full border rounded px-3 py-2 text-left flex items-center justify-between ${error ? 'border-red-500' : ''}`} onClick={openAndInit} onKeyDown={onKeyDown}>
-        <span>{selected ? `${selected.name}${selected.phone ? ' · '+selected.phone : ''}` : 'Select mediator'}</span>
+      <button type="button" className={`w-full rounded-md border ${error ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-left flex items-center justify-between text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} onClick={openAndInit} onKeyDown={onKeyDown}>
+        <span>{selected ? `${selected.name}` : 'Select mediator'}</span>
         <ChevronDownIcon className="w-4 h-4 text-gray-500"/>
       </button>
       {open && (
@@ -590,7 +592,7 @@ function PlatformSelect({ value, onChange, items, error }) {
   };
   return (
     <div className="relative" ref={ref}>
-      <button type="button" className={`w-full border rounded px-3 py-2 text-left flex items-center justify-between ${error ? 'border-red-500' : ''}`} onClick={openAndInit} onKeyDown={onKeyDown}>
+      <button type="button" className={`w-full rounded-md border ${error ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-left flex items-center justify-between text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} onClick={openAndInit} onKeyDown={onKeyDown}>
         <span>{selected ? `${selected.name}` : 'Select platform'}</span>
         <ChevronDownIcon className="w-4 h-4 text-gray-500"/>
       </button>

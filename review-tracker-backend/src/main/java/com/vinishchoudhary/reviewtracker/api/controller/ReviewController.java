@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.*;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -79,6 +80,11 @@ public class ReviewController {
         return resp;
     }
 
+    @PostMapping("/aggregates")
+    public ResponseEntity<Map<String, Object>> aggregates(@RequestBody ReviewSearchCriteria criteria) {
+        return ResponseEntity.ok(reviewService.aggregates(criteria));
+    }
+
     // ---------- Clone / Copy ----------
     @PostMapping("/{id}/clone")
     public ResponseEntity<Review> clone(@PathVariable String id) {
@@ -90,6 +96,26 @@ public class ReviewController {
                                              @PathVariable String targetId,
                                              @RequestBody List<String> fields) {
         return ResponseEntity.ok(reviewService.copyFields(srcId, targetId, fields));
+    }
+
+    // ---------- Advance ----------
+    public static class AdvanceRequest { public String date; public List<String> ids; }
+
+    @PostMapping("/{id}/advance")
+    public ResponseEntity<Review> advance(@PathVariable String id, @RequestBody(required = false) AdvanceRequest body) {
+        LocalDate when = null;
+        if (body != null && body.date != null && !body.date.isBlank()) {
+            when = LocalDate.parse(body.date);
+        }
+        return ResponseEntity.ok(reviewService.advanceNext(id, when));
+    }
+
+    @PostMapping("/bulk-advance")
+    public ResponseEntity<List<Review>> bulkAdvance(@RequestBody AdvanceRequest body) {
+        if (body == null || body.ids == null || body.ids.isEmpty()) return ResponseEntity.badRequest().build();
+        LocalDate when = null;
+        if (body.date != null && !body.date.isBlank()) when = LocalDate.parse(body.date);
+        return ResponseEntity.ok(reviewService.bulkAdvanceNext(body.ids, when));
     }
 
     // ---------- Bulk ----------
@@ -127,5 +153,18 @@ public class ReviewController {
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> dashboard() {
         return ResponseEntity.ok(reviewService.dashboard());
+    }
+
+    // ---------- Stats (decoupled) ----------
+    @GetMapping("/stats/amounts/platform")
+    public ResponseEntity<Map<String, Object>> amountsByPlatform() {
+        var res = reviewService.amountsByPlatform();
+        return ResponseEntity.ok(res);
+    }
+
+    @GetMapping("/stats/amounts/mediator")
+    public ResponseEntity<Map<String, Object>> amountsByMediator() {
+        var res = reviewService.amountsByMediator();
+        return ResponseEntity.ok(res);
     }
 }

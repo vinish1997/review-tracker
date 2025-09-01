@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:8080/api/lookups"; // adjust if needed
+const API_ROOT = (import.meta?.env?.VITE_API_BASE || "").replace(/\/$/, "");
+const API_BASE = `${API_ROOT}/api/lookups`;
 
 // Convenience getters for simple dropdown usage (return arrays of items)
 export const getPlatforms = async () => {

@@ -1,8 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import ToastCtx from "./ToastContext";
 
-const ToastCtx = createContext(null);
-
-export function ToastProvider({ children }) {
+export default function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const show = useCallback((message, type = 'info', ttl = 3000) => {
     const id = Math.random().toString(36).slice(2);
@@ -14,9 +13,12 @@ export function ToastProvider({ children }) {
   return (
     <ToastCtx.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2">
+      <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map(t => (
-          <div key={t.id} className={`px-4 py-2 rounded shadow text-white ${t.type==='error' ? 'bg-red-600' : t.type==='success' ? 'bg-green-600' : 'bg-gray-800'}`}
+          <div
+            key={t.id}
+            className={`px-4 py-2 rounded shadow border cursor-pointer transition-colors
+              ${t.type==='error' ? 'bg-red-50 text-red-800 border-red-200' : t.type==='success' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-slate-50 text-slate-800 border-slate-200'}`}
                onClick={() => remove(t.id)}
                role="status">
             {t.message}
@@ -26,8 +28,3 @@ export function ToastProvider({ children }) {
     </ToastCtx.Provider>
   );
 }
-
-export function useToast() {
-  return useContext(ToastCtx) || { show: () => {}, remove: () => {} };
-}
-

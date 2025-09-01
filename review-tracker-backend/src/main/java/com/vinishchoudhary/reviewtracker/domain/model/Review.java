@@ -2,6 +2,7 @@ package com.vinishchoudhary.reviewtracker.domain.model;
 
 import lombok.*;
 import org.springframework.data.annotation.*;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.*;
 import org.springframework.data.mongodb.core.index.Indexed;
 
@@ -24,15 +25,24 @@ public class Review {
     private String productName;
     private String dealType; // REVIEW_PUBLISHED | REVIEW_SUBMISSION | RATING_ONLY
     private String status;   // computed current status label
+    @Indexed
     private String platformId;
+    @Indexed
     private String mediatorId;
 
+    @Indexed
     private LocalDate orderedDate;
+    @Indexed
     private LocalDate deliveryDate;
+    @Indexed
     private LocalDate reviewSubmitDate;
+    @Indexed
     private LocalDate reviewAcceptedDate;
+    @Indexed
     private LocalDate ratingSubmittedDate;
+    @Indexed
     private LocalDate refundFormSubmittedDate;
+    @Indexed
     private LocalDate paymentReceivedDate;
 
     private BigDecimal amountRupees;
@@ -40,7 +50,11 @@ public class Review {
     private BigDecimal refundAmountRupees;
 
     @CreatedDate
+    @Indexed
     private java.time.Instant createdAt;
     @LastModifiedDate
     private java.time.Instant updatedAt;
+
+    @Version
+    private Long version;
 }

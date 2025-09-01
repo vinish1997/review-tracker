@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class ReviewService {
     private final ReviewRepository reviewRepo;
     private final ReviewHistoryService historyService;
+    private final com.vinishchoudhary.reviewtracker.domain.validation.DateChainValidator dateValidator;
 
     public List<Review> getAllReviews() {
         return reviewRepo.findAll();
@@ -35,6 +36,7 @@ public class ReviewService {
         if (r.getRefundAmountRupees() == null && r.getAmountRupees() != null && r.getLessRupees() != null) {
             r.setRefundAmountRupees(r.getAmountRupees().subtract(r.getLessRupees()));
         }
+        dateValidator.validate(r);
         r.setStatus(computeStatus(r));
         Review saved = reviewRepo.save(r);
         historyService.logChange(saved.getId(), "CREATE", "Created review", null);
@@ -44,6 +46,9 @@ public class ReviewService {
     public Review updateReview(String id, Review updated) {
         Review existing = reviewRepo.findById(id).orElseThrow();
         List<ReviewHistory.Change> changes = new ArrayList<>();
+
+        // ensure optimistic locking by applying client version
+        existing.setVersion(updated.getVersion());
 
         // Order ID uniqueness on change
         if (updated.getOrderId() != null && !Objects.equals(existing.getOrderId(), updated.getOrderId())) {
@@ -75,6 +80,7 @@ public class ReviewService {
         existing.setRatingSubmittedDate(updated.getRatingSubmittedDate());
         existing.setRefundFormSubmittedDate(updated.getRefundFormSubmittedDate());
         existing.setPaymentReceivedDate(updated.getPaymentReceivedDate());
+        dateValidator.validate(existing);
         existing.setStatus(computeStatus(existing));
 
         Review saved = reviewRepo.save(existing);
@@ -89,6 +95,95 @@ public class ReviewService {
 
     public Page<Review> searchReviews(ReviewSearchCriteria criteria, Pageable pageable) {
         return reviewRepo.searchReviews(criteria, pageable);
+    }
+
+    public Map<String, Object> aggregates(ReviewSearchCriteria criteria) {
+        return reviewRepo.aggregatedTotals(criteria);
+    }
+
+    // ---------- Advance ----------
+    public Review advanceNext(String id, LocalDate date) {
+        Review r = reviewRepo.findById(id).orElseThrow();
+        LocalDate when = date != null ? date : LocalDate.now();
+
+        String nextField = nextFieldFor(r);
+        if (nextField == null) {
+            return r; // nothing to do
+        }
+
+        // Set next field and clear subsequent ones in the flow for consistency
+        setField(r, nextField, when);
+        clearAfter(r, nextField);
+
+        r.setStatus(computeStatus(r));
+        Review saved = reviewRepo.save(r);
+        historyService.logChange(saved.getId(), "ADVANCE", "Set " + nextField + " to " + when, List.of(new ReviewHistory.Change(nextField, null, when.toString())));
+        return saved;
+    }
+
+    public List<Review> bulkAdvanceNext(List<String> ids, LocalDate date) {
+        List<Review> out = new ArrayList<>();
+        for (String id : ids) {
+            out.add(advanceNext(id, date));
+        }
+        return out;
+    }
+
+    private static void setField(Review r, String field, LocalDate value) {
+        switch (field) {
+            case "orderedDate": r.setOrderedDate(value); break;
+            case "deliveryDate": r.setDeliveryDate(value); break;
+            case "reviewSubmitDate": r.setReviewSubmitDate(value); break;
+            case "reviewAcceptedDate": r.setReviewAcceptedDate(value); break;
+            case "ratingSubmittedDate": r.setRatingSubmittedDate(value); break;
+            case "refundFormSubmittedDate": r.setRefundFormSubmittedDate(value); break;
+            case "paymentReceivedDate": r.setPaymentReceivedDate(value); break;
+            default: /* ignore */
+        }
+    }
+
+    private static void clearAfter(Review r, String fieldInclusive) {
+        List<String> seq = sequenceFor(r.getDealType());
+        int idx = seq.indexOf(fieldInclusive);
+        if (idx < 0) return;
+        for (int i = idx + 1; i < seq.size(); i++) {
+            String f = seq.get(i);
+            setField(r, f, null);
+        }
+    }
+
+    private static String nextFieldFor(Review r) {
+        for (String f : sequenceFor(r.getDealType())) {
+            LocalDate v = getField(r, f);
+            if (v == null) return f;
+        }
+        return null;
+    }
+
+    private static List<String> sequenceFor(String dealType) {
+        List<String> base = List.of("orderedDate","deliveryDate");
+        String dt = dealType == null ? "REVIEW_SUBMISSION" : dealType;
+        switch (dt) {
+            case "REVIEW_PUBLISHED":
+                return List.of("orderedDate","deliveryDate","reviewSubmitDate","reviewAcceptedDate","refundFormSubmittedDate","paymentReceivedDate");
+            case "RATING_ONLY":
+                return List.of("orderedDate","deliveryDate","ratingSubmittedDate","refundFormSubmittedDate","paymentReceivedDate");
+            default:
+                return List.of("orderedDate","deliveryDate","reviewSubmitDate","refundFormSubmittedDate","paymentReceivedDate");
+        }
+    }
+
+    private static LocalDate getField(Review r, String field) {
+        switch (field) {
+            case "orderedDate": return r.getOrderedDate();
+            case "deliveryDate": return r.getDeliveryDate();
+            case "reviewSubmitDate": return r.getReviewSubmitDate();
+            case "reviewAcceptedDate": return r.getReviewAcceptedDate();
+            case "ratingSubmittedDate": return r.getRatingSubmittedDate();
+            case "refundFormSubmittedDate": return r.getRefundFormSubmittedDate();
+            case "paymentReceivedDate": return r.getPaymentReceivedDate();
+            default: return null;
+        }
     }
 
     public Optional<Review> getReview(String id) {
@@ -171,6 +266,7 @@ public class ReviewService {
             if (updates.containsKey("ratingSubmittedDate")) r.setRatingSubmittedDate(LocalDate.parse((String) updates.get("ratingSubmittedDate")));
             if (updates.containsKey("refundFormSubmittedDate")) r.setRefundFormSubmittedDate(LocalDate.parse((String) updates.get("refundFormSubmittedDate")));
             if (updates.containsKey("paymentReceivedDate")) r.setPaymentReceivedDate(LocalDate.parse((String) updates.get("paymentReceivedDate")));
+            dateValidator.validate(r);
             r.setStatus(computeStatus(r));
         }
         return reviewRepo.saveAll(reviews);
@@ -320,65 +416,41 @@ public class ReviewService {
 
     // ---------- Dashboard ----------
     public Map<String, Object> dashboard() {
-        List<Review> all = reviewRepo.findAll();
-        List<Review> received = all.stream().filter(r -> "payment received".equalsIgnoreCase(r.getStatus())).toList();
-        List<Review> notReceived = all.stream().filter(r -> !"payment received".equalsIgnoreCase(r.getStatus())).toList();
-        BigDecimal totalReceived = received.stream()
-                .map(Review::getRefundAmountRupees)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalPending = notReceived.stream()
-                .map(r -> r.getRefundAmountRupees() != null ? r.getRefundAmountRupees()
-                        : (r.getAmountRupees() != null && r.getLessRupees() != null ? r.getAmountRupees().subtract(r.getLessRupees()) : BigDecimal.ZERO))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal averageRefund = received.isEmpty() ? BigDecimal.ZERO :
-                totalReceived.divide(BigDecimal.valueOf(received.size()), 2, java.math.RoundingMode.HALF_UP);
-        long submitted = all.stream().filter(r -> r.getReviewSubmitDate() != null).count();
-        long pending = all.size() - submitted;
+        return reviewRepo.aggregatedDashboard();
+    }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("totalReviews", all.size());
-        result.put("totalPaymentReceived", totalReceived);
-        result.put("averageRefund", averageRefund);
-        result.put("paymentPendingAmount", totalPending);
-        result.put("reviewsSubmitted", submitted);
-        result.put("reviewsPending", pending);
-        Map<String, Long> statusCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getStatus()).orElse("unknown"), Collectors.counting()));
-        Map<String, Long> platformCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getPlatformId()).orElse("unknown"), Collectors.counting()));
-        Map<String, Long> dealTypeCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getDealType()).orElse("unknown"), Collectors.counting()));
-        Map<String, Long> mediatorCounts = all.stream().collect(Collectors.groupingBy(r -> Optional.ofNullable(r.getMediatorId()).orElse("unknown"), Collectors.counting()));
-        result.put("statusCounts", statusCounts);
-        result.put("platformCounts", platformCounts);
-        result.put("dealTypeCounts", dealTypeCounts);
-        result.put("mediatorCounts", mediatorCounts);
-        // Amount aggregations
-        Map<String, java.math.BigDecimal> amountReceivedByPlatform = received.stream().collect(
-                Collectors.groupingBy(r -> Optional.ofNullable(r.getPlatformId()).orElse("unknown"),
-                        Collectors.mapping(r -> Optional.ofNullable(r.getRefundAmountRupees()).orElse(BigDecimal.ZERO),
-                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
-        Map<String, java.math.BigDecimal> amountReceivedByMediator = received.stream().collect(
-                Collectors.groupingBy(r -> Optional.ofNullable(r.getMediatorId()).orElse("unknown"),
-                        Collectors.mapping(r -> Optional.ofNullable(r.getRefundAmountRupees()).orElse(BigDecimal.ZERO),
-                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
-        Map<String, java.math.BigDecimal> amountPendingByPlatform = notReceived.stream().collect(
-                Collectors.groupingBy(r -> Optional.ofNullable(r.getPlatformId()).orElse("unknown"),
-                        Collectors.mapping(r -> {
-                                    if (r.getRefundAmountRupees() != null) return r.getRefundAmountRupees();
-                                    if (r.getAmountRupees() != null && r.getLessRupees() != null) return r.getAmountRupees().subtract(r.getLessRupees());
-                                    return BigDecimal.ZERO;
-                                }, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
-        Map<String, java.math.BigDecimal> amountPendingByMediator = notReceived.stream().collect(
-                Collectors.groupingBy(r -> Optional.ofNullable(r.getMediatorId()).orElse("unknown"),
-                        Collectors.mapping(r -> {
-                                    if (r.getRefundAmountRupees() != null) return r.getRefundAmountRupees();
-                                    if (r.getAmountRupees() != null && r.getLessRupees() != null) return r.getAmountRupees().subtract(r.getLessRupees());
-                                    return BigDecimal.ZERO;
-                                }, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
-        result.put("amountReceivedByPlatform", amountReceivedByPlatform);
-        result.put("amountPendingByPlatform", amountPendingByPlatform);
-        result.put("amountReceivedByMediator", amountReceivedByMediator);
-        result.put("amountPendingByMediator", amountPendingByMediator);
-        return result;
+    public Map<String, Object> amountsByPlatform() {
+        Map<String, Object> r = reviewRepo.amountByPlatform();
+        // Normalize keys to match previous dashboard shape when needed
+        Map<String, Object> out = new HashMap<>();
+        out.put("amountReceivedByPlatform", r.get("amountReceived"));
+        out.put("amountPendingByPlatform", r.get("amountPending"));
+        return out;
+    }
+
+    public Map<String, Object> amountsByMediator() {
+        Map<String, Object> r = reviewRepo.amountByMediator();
+        Map<String, Object> out = new HashMap<>();
+        out.put("amountReceivedByMediator", r.get("amountReceived"));
+        out.put("amountPendingByMediator", r.get("amountPending"));
+        return out;
+    }
+
+    private static long diffDays(java.time.LocalDate from, java.time.LocalDate to) {
+        return java.time.temporal.ChronoUnit.DAYS.between(from, to);
+    }
+
+    private static java.time.LocalDate previousDateForNext(Review r, String nextField) {
+        java.util.List<String> seq = sequenceFor(r.getDealType());
+        int idx = seq.indexOf(nextField);
+        if (idx <= 0) return null;
+        String prev = seq.get(idx - 1);
+        return getField(r, prev);
+    }
+
+    private static Double average(java.util.List<Long> values) {
+        if (values == null || values.isEmpty()) return 0.0;
+        return values.stream().mapToLong(Long::longValue).average().orElse(0.0);
     }
 
     private String computeStatus(Review r) {

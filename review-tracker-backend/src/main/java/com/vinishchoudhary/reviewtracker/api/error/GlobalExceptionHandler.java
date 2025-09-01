@@ -1,6 +1,7 @@
 package com.vinishchoudhary.reviewtracker.api.error;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,5 +36,11 @@ class GlobalExceptionHandler {
     ResponseEntity<ErrorDto> handleNotFound(NotFoundException ex, HttpServletRequest req) {
         var dto = new ErrorDto(Instant.now(), 404, "Not Found", ex.getMessage(), req.getRequestURI(), List.of());
         return ResponseEntity.status(404).body(dto);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ResponseEntity<ErrorDto> handleOptimistic(OptimisticLockingFailureException ex, HttpServletRequest req) {
+        var dto = new ErrorDto(Instant.now(), 409, "Conflict", "The review was modified by someone else. Please refresh and try again.", req.getRequestURI(), List.of());
+        return ResponseEntity.status(409).body(dto);
     }
 }

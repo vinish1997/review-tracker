@@ -6,9 +6,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class SpaController {
     // Forward known client routes to index.html so browser refresh works
-    @GetMapping({"/reviews", "/reviews/**", "/lookups", "/archive"})
+    @GetMapping({"/reviews", "/reviews/**", "/lookups", "/archive", "/shared/**"})
     public String forwardClientRoutes() {
         return "forward:/index.html";
     }
 }
-

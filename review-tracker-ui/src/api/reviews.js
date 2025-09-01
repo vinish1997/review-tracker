@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:8080/api/reviews"; // adjust backend URL
+// Allow overriding API base via env (e.g., VITE_API_BASE=https://server)
+const API_ROOT = (import.meta?.env?.VITE_API_BASE || "").replace(/\/$/, "");
+const API_BASE = `${API_ROOT}/api/reviews`;
 
 export const getReviews = (params = {}) => axios.get(API_BASE, { params });
 export const getReview = (id) => axios.get(`${API_BASE}/${id}`);
@@ -15,3 +17,8 @@ export const importCsv = (file) => {
   return axios.post(`${API_BASE}/import`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
 export const bulkDelete = (ids) => axios.post(`${API_BASE}/bulk-delete`, ids);
+export const aggregates = (criteria) => axios.post(`${API_BASE}/aggregates`, criteria);
+
+// Advance next step endpoints
+export const advanceReview = (id, date) => axios.post(`${API_BASE}/${id}/advance`, { date });
+export const bulkAdvance = (ids, date) => axios.post(`${API_BASE}/bulk-advance`, { ids, date });

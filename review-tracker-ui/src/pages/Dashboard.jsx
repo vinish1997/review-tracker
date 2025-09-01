@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatCurrencyINR as formatCurrency } from "../utils/format";
 import axios from "axios";
 import { getPlatforms, getMediators } from "../api/lookups";
 import { useNavigate } from "react-router-dom";
@@ -7,10 +8,14 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [platformMap, setPlatformMap] = useState({});
   const [mediatorMap, setMediatorMap] = useState({});
+  const [platAmts, setPlatAmts] = useState(null);
+  const [medAmts, setMedAmts] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     axios.get("/api/reviews/dashboard").then(res => setData(res.data));
+    axios.get("/api/reviews/stats/amounts/platform").then(res => setPlatAmts(res.data)).catch(()=>{});
+    axios.get("/api/reviews/stats/amounts/mediator").then(res => setMedAmts(res.data)).catch(()=>{});
     Promise.all([getPlatforms(), getMediators()]).then(([p, m]) => {
       setPlatformMap(Object.fromEntries((p.data||[]).map(x=>[x.id, x.name])));
       setMediatorMap(Object.fromEntries((m.data||[]).map(x=>[x.id, x.name])));
@@ -18,6 +23,8 @@ export default function Dashboard() {
   }, []);
 
   const d = data || { statusCounts: {}, platformCounts: {}, dealTypeCounts: {}, mediatorCounts: {} };
+  const avg = d?.avgStageDurations || {};
+  const aging = d?.agingBuckets || {};
   const statusEntries = Object.entries(d.statusCounts || {});
   const platformEntries = useMemo(() => Object.entries(d.platformCounts || {})
     .map(([id,c]) => [platformMap[id] || id, c])
@@ -32,7 +39,6 @@ export default function Dashboard() {
     .sort((a,b) => b[1]-a[1])
   , [d.mediatorCounts, mediatorMap]);
 
-  if (!data) return <p>Loading...</p>;
   const donutColors = {
     'ordered': '#94a3b8',
     'delivered': '#38bdf8',
@@ -43,14 +49,16 @@ export default function Dashboard() {
     'payment received': '#10b981',
     'unknown': '#e5e7eb'
   };
-  const totalStatus = statusEntries.reduce((s, [,v]) => s + v, 0) || 1;
-  let acc = 0;
-  const donutStops = statusEntries.map(([k,v]) => {
-    const start = (acc/totalStatus)*100; acc += v; const end = (acc/totalStatus)*100;
-    const color = donutColors[k] || '#999';
-    return `${color} ${start}% ${end}%`;
-  });
-  const donut = { style: { background: `conic-gradient(${donutStops.join(',')})` }, legend: Object.fromEntries(statusEntries.map(([k])=>[k, donutColors[k]||'#999'])) };
+  const donut = (() => {
+    const totalStatus = statusEntries.reduce((s, [,v]) => s + v, 0) || 1;
+    let acc = 0;
+    const donutStops = statusEntries.map(([k,v]) => {
+      const start = (acc/totalStatus)*100; acc += v; const end = (acc/totalStatus)*100;
+      const color = donutColors[k] || '#999';
+      return `${color} ${start}% ${end}%`;
+    });
+    return { style: { background: `conic-gradient(${donutStops.join(',')})` }, legend: Object.fromEntries(statusEntries.map(([k])=>[k, donutColors[k]||'#999'])) };
+  })();
 
   return (
     <div className="space-y-6">
@@ -59,48 +67,93 @@ export default function Dashboard() {
         <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
         <p className="text-gray-600">A quick overview of your review operations</p>
       </div>
-      <div className="grid grid-cols-7 gap-4">
-        <Card title="Total Reviews" value={data.totalReviews} onClick={()=> navigate('/reviews')} clickable />
-        <Card title="Payment Received" value={`₹${data.totalPaymentReceived}`} onClick={()=> navigate('/archive')} clickable />
-        <Card title="Avg Refund" value={`₹${data.averageRefund}`} />
-        <Card title="Pending Review/Rating" value={Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
-        <Card title="Pending Refund Form" value={Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
-        <Card title="Pending Payment" value={Number(data.statusCounts?.["refund form submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
-        <Card title="Payment Pending Amt" value={`₹${data.paymentPendingAmount || 0}`} />
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <Panel title="By Status">
-          <div className="flex items-center gap-4">
-            <div className="w-24 h-24 rounded-full" style={donut.style} />
-            <List entries={statusEntries} legend={donut.legend} />
+      {(!data) ? (
+        <div className="space-y-4 animate-pulse">
+          <div className="grid grid-cols-7 gap-4">
+            {Array.from({length:7}).map((_,i)=> (
+              <div key={i} className="bg-white/90 ring-1 ring-gray-100 shadow-sm p-4 rounded-lg">
+                <div className="h-3 w-24 bg-gray-200 rounded mb-2" />
+                <div className="h-6 w-20 bg-gray-200 rounded" />
+              </div>
+            ))}
           </div>
-        </Panel>
-        <Panel title="Platforms (Count)">
-          <Pie entries={platformEntries} />
-        </Panel>
-        <Panel title="Deal Types (Count)">
-          <Pie entries={dealEntries} />
-        </Panel>
-        <Panel title="Mediators (Count)">
-          <Pie entries={mediatorEntries} />
-        </Panel>
-      </div>
+          <div className="grid grid-cols-3 gap-4">
+            {Array.from({length:3}).map((_,i)=> (
+              <div key={i} className="bg-white shadow p-4 rounded">
+                <div className="h-4 w-40 bg-gray-200 rounded mb-3" />
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-24 rounded-full bg-gray-200" />
+                  <div className="space-y-2 w-full">
+                    {Array.from({length:4}).map((_,j)=> <div key={j} className="h-3 bg-gray-200 rounded" />)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {Array.from({length:4}).map((_,i)=> (
+              <div key={i} className="bg-white shadow p-4 rounded">
+                <div className="h-4 w-56 bg-gray-200 rounded mb-3" />
+                <div className="space-y-2">
+                  {Array.from({length:5}).map((_,j)=> <div key={j} className="h-2 bg-gray-200 rounded" />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-8 gap-4">
+            <Card title="Total Reviews" value={data.totalReviews} onClick={()=> navigate('/reviews')} clickable />
+        <Card title="Payment Received" value={formatCurrency(data.totalPaymentReceived)} onClick={()=> navigate('/archive')} clickable />
+        <Card title="Avg Refund" value={formatCurrency(data.averageRefund)} />
+            <Card title="Pending Review/Rating" value={Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
+            <Card title="Pending Refund Form" value={Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
+            <Card title="Pending Payment" value={Number(data.statusCounts?.["refund form submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
+            <Card title="Payment Pending Amt" value={`₹${data.paymentPendingAmount || 0}`} />
+            <Card title=">7d Since Delivery" value={data.overdueSinceDeliveryCount || 0} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
+          </div>
 
-      <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <Panel title="By Status">
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-24 rounded-full" style={donut.style} />
+                <List entries={statusEntries} legend={donut.legend} />
+              </div>
+            </Panel>
+            <Panel title="Platforms (Count)">
+              <Pie entries={platformEntries} />
+            </Panel>
+            <Panel title="Deal Types (Count)">
+              <Pie entries={dealEntries} />
+            </Panel>
+            <Panel title="Mediators (Count)">
+              <Pie entries={mediatorEntries} />
+            </Panel>
+            <Panel title="Aging Buckets (Next Step)">
+              <Bars entries={Object.entries(aging)} />
+            </Panel>
+            <Panel title="Stage Durations (Avg Days)">
+              <KeyVals entries={Object.entries(avg).map(([k,v])=>[labelOfDuration(k), Number.isFinite(v)? Math.round(v) : 0])} />
+            </Panel>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
         <Panel title="Amount Received by Platform">
-          <BarCurrency entries={Object.entries(d.amountReceivedByPlatform||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
+          <BarCurrency entries={Object.entries((platAmts?.amountReceivedByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
         </Panel>
         <Panel title="Amount Pending by Platform">
-          <BarCurrency entries={Object.entries(d.amountPendingByPlatform||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
+          <BarCurrency entries={Object.entries((platAmts?.amountPendingByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
         </Panel>
         <Panel title="Amount Received by Mediator">
-          <BarCurrency entries={Object.entries(d.amountReceivedByMediator||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
+          <BarCurrency entries={Object.entries((medAmts?.amountReceivedByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
         </Panel>
         <Panel title="Amount Pending by Mediator">
-          <BarCurrency entries={Object.entries(d.amountPendingByMediator||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
+          <BarCurrency entries={Object.entries((medAmts?.amountPendingByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
         </Panel>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -160,12 +213,39 @@ function Bars({ entries }) {
   );
 }
 
+function KeyVals({ entries }) {
+  if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
+  return (
+    <ul className="space-y-1 text-sm">
+      {entries.map(([k, v]) => (
+        <li key={k} className="flex justify-between items-center">
+          <span className="capitalize">{k}</span>
+          <span className="font-medium">{v} d</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function labelOfDuration(k) {
+  const m = {
+    orderedToDelivery: 'Ordered → Delivered',
+    deliveryToReviewSubmit: 'Delivered → Review Submitted',
+    reviewSubmitToReviewAccepted: 'Review Submitted → Review Accepted',
+    deliveryToRatingSubmitted: 'Delivered → Rating Submitted',
+    reviewSubmitToRefundForm: 'Review Submitted → Refund Form',
+    ratingSubmittedToRefundForm: 'Rating Submitted → Refund Form',
+    refundFormToPayment: 'Refund Form → Payment',
+  };
+  return m[k] || k;
+}
+
 function Pie({ entries }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
   const colors = ['#60a5fa','#34d399','#fbbf24','#f472b6','#a78bfa','#f87171','#10b981','#f59e0b','#22c55e','#ef4444','#06b6d4'];
   const total = entries.reduce((s, [,v]) => s + v, 0) || 1;
   let acc = 0;
-  const stops = entries.map(([k,v],i)=>{ const start=(acc/total)*100; acc+=v; const end=(acc/total)*100; const color=colors[i%colors.length]; return `${color} ${start}% ${end}%`; });
+  const stops = entries.map(([,v],i)=>{ const start=(acc/total)*100; acc+=v; const end=(acc/total)*100; const color=colors[i%colors.length]; return `${color} ${start}% ${end}%`; });
   const legend = Object.fromEntries(entries.map(([k],i)=>[k, colors[i%colors.length]]));
   return (
     <div className="flex items-center gap-4">
@@ -184,7 +264,7 @@ function BarCurrency({ entries }) {
         const pct = Math.round(((v||0)/max)*100);
         return (
           <div key={k} className="text-sm">
-            <div className="flex justify-between"><span className="capitalize">{k}</span><span>₹{v||0}</span></div>
+            <div className="flex justify-between"><span className="capitalize">{k}</span><span>{formatCurrency(v||0)}</span></div>
             <div className="w-full h-2 bg-gray-200 rounded">
               <div className="h-2 bg-indigo-500 rounded" style={{ width: `${pct}%` }} />
             </div>

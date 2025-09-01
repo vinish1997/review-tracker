@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { ToastProvider } from "./components/ToastProvider";
+import ToastProvider from "./components/ToastProvider";
 import Dashboard from "./pages/Dashboard";
+import SharedView from "./pages/SharedView";
 import Reviews from "./pages/Reviews";
 import Lookups from "./pages/Lookups";
 import Archive from "./pages/Archive";
@@ -26,6 +27,7 @@ function App() {
             <Route path="/reviews/*" element={<Reviews />} />
             <Route path="/lookups" element={<Lookups />} />
             <Route path="/archive" element={<Archive />} />
+            <Route path="/shared/:slug" element={<SharedView />} />
           </Routes>
         </main>
       </div>

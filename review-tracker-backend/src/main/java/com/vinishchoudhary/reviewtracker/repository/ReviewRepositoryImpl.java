@@ -61,4 +61,403 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
         return new PageImpl<>(results, pageable, total);
     }
+
+    @Override
+    public java.util.Map<String, Object> aggregatedTotals(ReviewSearchCriteria criteria) {
+        List<AggregationOperation> ops = new ArrayList<>();
+        // match
+        List<Criteria> filters = new ArrayList<>();
+        if (criteria.getPlatformId() != null) filters.add(Criteria.where("platformId").is(criteria.getPlatformId()));
+        if (criteria.getPlatformIdIn() != null && !criteria.getPlatformIdIn().isEmpty())
+            filters.add(Criteria.where("platformId").in(criteria.getPlatformIdIn()));
+        if (criteria.getStatus() != null) filters.add(Criteria.where("status").is(criteria.getStatus()));
+        if (criteria.getStatusIn() != null && !criteria.getStatusIn().isEmpty())
+            filters.add(Criteria.where("status").in(criteria.getStatusIn()));
+        if (criteria.getMediatorId() != null) filters.add(Criteria.where("mediatorId").is(criteria.getMediatorId()));
+        if (criteria.getMediatorIdIn() != null && !criteria.getMediatorIdIn().isEmpty())
+            filters.add(Criteria.where("mediatorId").in(criteria.getMediatorIdIn()));
+        if (criteria.getDealType() != null) filters.add(Criteria.where("dealType").is(criteria.getDealType()));
+        if (criteria.getDealTypeIn() != null && !criteria.getDealTypeIn().isEmpty())
+            filters.add(Criteria.where("dealType").in(criteria.getDealTypeIn()));
+        if (criteria.getProductNameContains() != null)
+            filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));
+        if (criteria.getOrderIdContains() != null)
+            filters.add(Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i"));
+        if (!filters.isEmpty()) {
+            ops.add(context -> new org.bson.Document("$match", new org.bson.Document(new Criteria().andOperator(filters.toArray(new Criteria[0])).getCriteriaObject())));
+        }
+
+        // Add computedRefund using $ifNull + $cond (JSON parse to avoid verbose builder)
+        org.bson.Document computedRefundExpr = org.bson.Document.parse("{\n" +
+                "  \"$ifNull\": [ \"$refundAmountRupees\", {\n" +
+                "    \"$cond\": [ { \"$and\": [ { \"$ne\": [ \"$amountRupees\", null ] }, { \"$ne\": [ \"$lessRupees\", null ] } ] },\n" +
+                "               { \"$subtract\": [ \"$amountRupees\", \"$lessRupees\" ] },\n" +
+                "               0 ]\n" +
+                "  } ]\n" +
+                "}");
+
+        ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
+
+        // group totals
+        org.bson.Document groupFields = new org.bson.Document("_id", null)
+                .append("count", new org.bson.Document("$sum", 1))
+                .append("totalAmount", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$amountRupees", 0))))
+                .append("totalRefund", new org.bson.Document("$sum", "$computedRefund"));
+        ops.add(context -> new org.bson.Document("$group", groupFields));
+
+        Aggregation agg = Aggregation.newAggregation(ops);
+        org.bson.Document result = mongoTemplate.aggregate(agg, Review.class, org.bson.Document.class)
+                .getUniqueMappedResult();
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        if (result != null) {
+            out.put("count", ((Number) result.getOrDefault("count", 0)).longValue());
+            out.put("totalAmount", result.get("totalAmount"));
+            out.put("totalRefund", result.get("totalRefund"));
+        } else {
+            out.put("count", 0L);
+            out.put("totalAmount", java.math.BigDecimal.ZERO);
+            out.put("totalRefund", java.math.BigDecimal.ZERO);
+        }
+        return out;
+    }
+
+    @Override
+    public java.util.Map<String, Object> aggregatedDashboard() {
+        List<AggregationOperation> ops = new ArrayList<>();
+
+        // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
+        org.bson.Document amountAndLessPresent = new org.bson.Document("$and", java.util.List.of(
+                new org.bson.Document("$ne", java.util.List.of("$amountRupees", null)),
+                new org.bson.Document("$ne", java.util.List.of("$lessRupees", null))
+        ));
+        org.bson.Document fallbackSubtract = new org.bson.Document("$cond",
+                java.util.List.of(
+                        amountAndLessPresent,
+                        new org.bson.Document("$subtract", java.util.List.of("$amountRupees", "$lessRupees")),
+                        0
+                )
+        );
+        org.bson.Document computedRefundExpr = new org.bson.Document("$ifNull",
+                java.util.List.of("$refundAmountRupees", fallbackSubtract)
+        );
+        ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
+
+        // Precompute 'completed' flag (flow finished) per dealType for pending/overdue logic
+        org.bson.Document completedExpr = new org.bson.Document("$switch",
+                new org.bson.Document("branches", java.util.List.of(
+                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.List.of("$dealType", "REVIEW_PUBLISHED")))
+                                .append("then", new org.bson.Document("$and", java.util.List.of(
+                                        new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)),
+                                        new org.bson.Document("$ne", java.util.List.of("$reviewAcceptedDate", null)),
+                                        new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null))
+                                ))),
+                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.List.of("$dealType", "RATING_ONLY")))
+                                .append("then", new org.bson.Document("$and", java.util.List.of(
+                                        new org.bson.Document("$ne", java.util.List.of("$ratingSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null))
+                                ))),
+                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.List.of("$dealType", "REVIEW_SUBMISSION")))
+                                .append("then", new org.bson.Document("$and", java.util.List.of(
+                                        new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)),
+                                        new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null))
+                                )))
+                )).append("default", false));
+        ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("completed", completedExpr)));
+
+        // Date anchors for aging buckets (JSON parse to avoid builder nesting)
+        org.bson.Document anchorExpr = org.bson.Document.parse("{\n" +
+                "  \"$switch\": {\n" +
+                "    \"branches\": [\n" +
+                "      { \"case\": { \"$eq\": [ \"$dealType\", \"REVIEW_PUBLISHED\" ] }, \"then\": { \"$cond\": [ { \"$eq\": [ \"$reviewSubmitDate\", null ] }, \"$deliveryDate\", { \"$cond\": [ { \"$eq\": [ \"$reviewAcceptedDate\", null ] }, \"$reviewSubmitDate\", { \"$cond\": [ { \"$eq\": [ \"$refundFormSubmittedDate\", null ] }, \"$reviewAcceptedDate\", { \"$cond\": [ { \"$eq\": [ \"$paymentReceivedDate\", null ] }, \"$refundFormSubmittedDate\", null ] } ] } ] } ] } },\n" +
+                "      { \"case\": { \"$eq\": [ \"$dealType\", \"RATING_ONLY\" ] }, \"then\": { \"$cond\": [ { \"$eq\": [ \"$ratingSubmittedDate\", null ] }, \"$deliveryDate\", { \"$cond\": [ { \"$eq\": [ \"$refundFormSubmittedDate\", null ] }, \"$ratingSubmittedDate\", { \"$cond\": [ { \"$eq\": [ \"$paymentReceivedDate\", null ] }, \"$refundFormSubmittedDate\", null ] } ] } ] } },\n" +
+                "      { \"case\": { \"$eq\": [ \"$dealType\", \"REVIEW_SUBMISSION\" ] }, \"then\": { \"$cond\": [ { \"$eq\": [ \"$reviewSubmitDate\", null ] }, \"$deliveryDate\", { \"$cond\": [ { \"$eq\": [ \"$refundFormSubmittedDate\", null ] }, \"$reviewSubmitDate\", { \"$cond\": [ { \"$eq\": [ \"$paymentReceivedDate\", null ] }, \"$refundFormSubmittedDate\", null ] } ] } ] } }\n" +
+                "    ],\n" +
+                "    \"default\": null\n" +
+                "  }\n" +
+                "}");
+        ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("anchorDate", anchorExpr)));
+
+        // build reference dates for overdue and aging buckets
+        java.util.Date now = new java.util.Date();
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -7); java.util.Date nowMinus7 = cal.getTime();
+        cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -14); java.util.Date nowMinus14 = cal.getTime();
+        cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -30); java.util.Date nowMinus30 = cal.getTime();
+
+        // facet
+        org.bson.Document facet = new org.bson.Document();
+
+        // totals
+        facet.append("totals", java.util.List.of(
+                new org.bson.Document("$group", new org.bson.Document("_id", null)
+                        .append("totalReviews", new org.bson.Document("$sum", 1))
+                        .append("totalReceived", new org.bson.Document("$sum",
+                                new org.bson.Document("$cond", java.util.List.of(
+                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null)),
+                                        new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")),
+                                        0
+                                ))))
+                        .append("countReceived", new org.bson.Document("$sum",
+                                new org.bson.Document("$cond", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null)), 1, 0))))
+                        .append("pendingAmount", new org.bson.Document("$sum",
+                                new org.bson.Document("$cond", java.util.List.of(new org.bson.Document("$eq", java.util.List.of("$paymentReceivedDate", null)), "$computedRefund", 0))))
+                        .append("submittedCount", new org.bson.Document("$sum",
+                                new org.bson.Document("$cond", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)), 1, 0))))
+                ),
+                new org.bson.Document("$project", new org.bson.Document("_id", 0)
+                        .append("totalReviews", 1)
+                        .append("totalPaymentReceived", "$totalReceived")
+                        .append("averageRefund", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$gt", java.util.List.of("$countReceived", 0)),
+                                new org.bson.Document("$divide", java.util.List.of("$totalReceived", "$countReceived")),
+                                0
+                        )))
+                        .append("paymentPendingAmount", "$pendingAmount")
+                        .append("reviewsSubmitted", "$submittedCount")
+                        .append("reviewsPending", new org.bson.Document("$subtract", java.util.List.of("$totalReviews", "$submittedCount")))
+                )
+        ));
+
+        // generic group helper via inline docs
+        facet.append("statusCounts", java.util.List.of(
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$status", "unknown")))
+                        .append("c", new org.bson.Document("$sum", 1)))
+        ));
+        facet.append("platformCounts", java.util.List.of(
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$platformId", "unknown")))
+                        .append("c", new org.bson.Document("$sum", 1)))
+        ));
+        facet.append("dealTypeCounts", java.util.List.of(
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$dealType", "unknown")))
+                        .append("c", new org.bson.Document("$sum", 1)))
+        ));
+        facet.append("mediatorCounts", java.util.List.of(
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$mediatorId", "unknown")))
+                        .append("c", new org.bson.Document("$sum", 1)))
+        ));
+
+        facet.append("receivedByPlatform", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$platformId", "unknown")))
+                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
+        ));
+        facet.append("pendingByPlatform", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$platformId", "unknown")))
+                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
+        ));
+        facet.append("receivedByMediator", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$mediatorId", "unknown")))
+                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
+        ));
+        facet.append("pendingByMediator", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$mediatorId", "unknown")))
+                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
+        ));
+
+        facet.append("overdue", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("deliveryDate", new org.bson.Document("$ne", null))),
+                new org.bson.Document("$match", new org.bson.Document("deliveryDate", new org.bson.Document("$lt", nowMinus7))),
+                new org.bson.Document("$match", new org.bson.Document("completed", false)),
+                new org.bson.Document("$count", "count")
+        ));
+
+        facet.append("aging", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("anchorDate", new org.bson.Document("$ne", null))),
+                new org.bson.Document("$project", new org.bson.Document("bucket",
+                        new org.bson.Document("$switch", new org.bson.Document("branches", java.util.List.of(
+                                new org.bson.Document("case", new org.bson.Document("$gte", java.util.List.of("$anchorDate", nowMinus7))).append("then", "0-7"),
+                                new org.bson.Document("case", new org.bson.Document("$gte", java.util.List.of("$anchorDate", nowMinus14))).append("then", "8-14"),
+                                new org.bson.Document("case", new org.bson.Document("$gte", java.util.List.of("$anchorDate", nowMinus30))).append("then", "15-30")
+                        )).append("default", "31+")
+                        ))),
+                new org.bson.Document("$group", new org.bson.Document("_id", "$bucket").append("c", new org.bson.Document("$sum", 1)))
+        ));
+
+        facet.append("avgDurations", java.util.List.of(
+                new org.bson.Document("$project", new org.bson.Document()
+                        .append("d1", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$orderedDate", null)), new org.bson.Document("$ne", java.util.List.of("$deliveryDate", null)))),
+                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$deliveryDate", "$orderedDate")), 86400000)),
+                                null)))
+                        .append("d2", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$deliveryDate", null)), new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)))),
+                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$reviewSubmitDate", "$deliveryDate")), 86400000)),
+                                null)))
+                        .append("d3", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)), new org.bson.Document("$ne", java.util.List.of("$reviewAcceptedDate", null)))),
+                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$reviewAcceptedDate", "$reviewSubmitDate")), 86400000)),
+                                null)))
+                        .append("d4", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$deliveryDate", null)), new org.bson.Document("$ne", java.util.List.of("$ratingSubmittedDate", null)))),
+                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$ratingSubmittedDate", "$deliveryDate")), 86400000)),
+                                null)))
+                        .append("d5", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)), new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)))),
+                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$refundFormSubmittedDate", "$reviewSubmitDate")), 86400000)),
+                                null)))
+                        .append("d6", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$ratingSubmittedDate", null)), new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)))),
+                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$refundFormSubmittedDate", "$ratingSubmittedDate")), 86400000)),
+                                null)))
+                        .append("d7", new org.bson.Document("$cond", java.util.List.of(
+                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)), new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null)))),
+                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$paymentReceivedDate", "$refundFormSubmittedDate")), 86400000)),
+                                null)))
+                ),
+                new org.bson.Document("$group", new org.bson.Document("_id", null)
+                        .append("avg1", new org.bson.Document("$avg", "$d1"))
+                        .append("avg2", new org.bson.Document("$avg", "$d2"))
+                        .append("avg3", new org.bson.Document("$avg", "$d3"))
+                        .append("avg4", new org.bson.Document("$avg", "$d4"))
+                        .append("avg5", new org.bson.Document("$avg", "$d5"))
+                        .append("avg6", new org.bson.Document("$avg", "$d6"))
+                        .append("avg7", new org.bson.Document("$avg", "$d7"))
+                )
+        ));
+
+        ops.add(context -> new org.bson.Document("$facet", facet));
+
+        Aggregation agg = Aggregation.newAggregation(ops);
+        org.bson.Document root = mongoTemplate.aggregate(agg, Review.class, org.bson.Document.class)
+                .getUniqueMappedResult();
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        if (root == null) return out;
+
+        java.util.List<org.bson.Document> totals = (java.util.List<org.bson.Document>) root.get("totals");
+        if (totals != null && !totals.isEmpty()) {
+            out.putAll(totals.get(0));
+        }
+        out.put("statusCounts", toCountMap((java.util.List<org.bson.Document>) root.get("statusCounts")));
+        out.put("platformCounts", toCountMap((java.util.List<org.bson.Document>) root.get("platformCounts")));
+        out.put("dealTypeCounts", toCountMap((java.util.List<org.bson.Document>) root.get("dealTypeCounts")));
+        out.put("mediatorCounts", toCountMap((java.util.List<org.bson.Document>) root.get("mediatorCounts")));
+        out.put("amountReceivedByPlatform", toAmountMap((java.util.List<org.bson.Document>) root.get("receivedByPlatform"), "amt"));
+        out.put("amountPendingByPlatform", toAmountMap((java.util.List<org.bson.Document>) root.get("pendingByPlatform"), "amt"));
+        out.put("amountReceivedByMediator", toAmountMap((java.util.List<org.bson.Document>) root.get("receivedByMediator"), "amt"));
+        out.put("amountPendingByMediator", toAmountMap((java.util.List<org.bson.Document>) root.get("pendingByMediator"), "amt"));
+
+        java.util.List<org.bson.Document> overdue = (java.util.List<org.bson.Document>) root.get("overdue");
+        long ov = 0;
+        if (overdue != null && !overdue.isEmpty()) {
+            Object v = overdue.get(0).get("count");
+            if (v instanceof Number n) ov = n.longValue();
+        }
+        out.put("overdueSinceDeliveryCount", ov);
+
+        java.util.List<org.bson.Document> aging = (java.util.List<org.bson.Document>) root.get("aging");
+        java.util.Map<String, Long> agingBuckets = new java.util.LinkedHashMap<>();
+        agingBuckets.put("0-7", 0L); agingBuckets.put("8-14", 0L); agingBuckets.put("15-30", 0L); agingBuckets.put("31+", 0L);
+        if (aging != null) for (org.bson.Document d : aging) agingBuckets.put(String.valueOf(d.get("_id")), ((Number)d.get("c")).longValue());
+        out.put("agingBuckets", agingBuckets);
+
+        java.util.List<org.bson.Document> avgs = (java.util.List<org.bson.Document>) root.get("avgDurations");
+        java.util.Map<String, Double> avgDurations = new java.util.LinkedHashMap<>();
+        if (avgs != null && !avgs.isEmpty()) {
+            org.bson.Document a = avgs.get(0);
+            avgDurations.put("orderedToDelivery", toDouble(a.get("avg1")));
+            avgDurations.put("deliveryToReviewSubmit", toDouble(a.get("avg2")));
+            avgDurations.put("reviewSubmitToReviewAccepted", toDouble(a.get("avg3")));
+            avgDurations.put("deliveryToRatingSubmitted", toDouble(a.get("avg4")));
+            avgDurations.put("reviewSubmitToRefundForm", toDouble(a.get("avg5")));
+            avgDurations.put("ratingSubmittedToRefundForm", toDouble(a.get("avg6")));
+            avgDurations.put("refundFormToPayment", toDouble(a.get("avg7")));
+        }
+        out.put("avgStageDurations", avgDurations);
+
+        return out;
+    }
+
+    private static java.util.Map<String, Long> toCountMap(java.util.List<org.bson.Document> rows) {
+        java.util.Map<String, Long> m = new java.util.HashMap<>();
+        if (rows == null) return m;
+        for (org.bson.Document d : rows) {
+            String k = String.valueOf(d.get("_id"));
+            m.put(k, ((Number) d.get("c")).longValue());
+        }
+        return m;
+    }
+
+    private static java.util.Map<String, java.math.BigDecimal> toAmountMap(java.util.List<org.bson.Document> rows, String field) {
+        java.util.Map<String, java.math.BigDecimal> m = new java.util.HashMap<>();
+        if (rows == null) return m;
+        for (org.bson.Document d : rows) {
+            String k = String.valueOf(d.get("_id"));
+            Object v = d.get(field);
+            java.math.BigDecimal bd;
+            if (v instanceof org.bson.types.Decimal128 dec) bd = dec.bigDecimalValue();
+            else if (v instanceof Number n) bd = java.math.BigDecimal.valueOf(n.doubleValue());
+            else bd = java.math.BigDecimal.ZERO;
+            m.put(k, bd);
+        }
+        return m;
+    }
+
+    private static Double toDouble(Object v) {
+        if (v == null) return 0.0;
+        if (v instanceof Number n) return n.doubleValue();
+        return 0.0;
+    }
+
+    @Override
+    public java.util.Map<String, Object> amountByPlatform() {
+        return amountByField("platformId");
+    }
+
+    @Override
+    public java.util.Map<String, Object> amountByMediator() {
+        return amountByField("mediatorId");
+    }
+
+    private java.util.Map<String, Object> amountByField(String field) {
+        java.util.List<AggregationOperation> ops = new java.util.ArrayList<>();
+        // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
+        org.bson.Document amountAndLessPresent2 = new org.bson.Document("$and", java.util.List.of(
+                new org.bson.Document("$ne", java.util.List.of("$amountRupees", null)),
+                new org.bson.Document("$ne", java.util.List.of("$lessRupees", null))
+        ));
+        org.bson.Document fallbackSubtract2 = new org.bson.Document("$cond",
+                java.util.List.of(
+                        amountAndLessPresent2,
+                        new org.bson.Document("$subtract", java.util.List.of("$amountRupees", "$lessRupees")),
+                        0
+                )
+        );
+        org.bson.Document computedRefundExpr = new org.bson.Document("$ifNull",
+                java.util.List.of("$refundAmountRupees", fallbackSubtract2)
+        );
+        ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
+
+        org.bson.Document facet = new org.bson.Document();
+        facet.append("received", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
+                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
+        ));
+        facet.append("pending", java.util.List.of(
+                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
+                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
+                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
+        ));
+
+        ops.add(context -> new org.bson.Document("$facet", facet));
+        Aggregation agg = Aggregation.newAggregation(ops);
+        org.bson.Document root = mongoTemplate.aggregate(agg, Review.class, org.bson.Document.class)
+                .getUniqueMappedResult();
+        if (root == null) {
+            java.util.Map<String, Object> empty = new java.util.HashMap<>();
+            empty.put("amountReceived", java.util.Collections.emptyMap());
+            empty.put("amountPending", java.util.Collections.emptyMap());
+            return empty;
+        }
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        out.put("amountReceived", toAmountMap((java.util.List<org.bson.Document>) root.get("received"), "amt"));
+        out.put("amountPending", toAmountMap((java.util.List<org.bson.Document>) root.get("pending"), "amt"));
+        return out;
+    }
 }

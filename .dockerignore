@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# Node
+review-tracker-ui/node_modules
+**/.npm
+**/.cache
+
+# Java / Maven
+**/target
+**/.mvn
+**/mvnw*
+
+# IDE / OS
+.idea
+.vscode
+*.iml
+*.DS_Store
+
+# UI build output in repo (we rebuild in Docker)
+review-tracker-backend/src/main/resources/static
+

@@ -57,6 +57,19 @@ A full‑stack app to track product review and refund workflows. It provides a R
 - Tests:
   - `mvn -f review-tracker-backend/pom.xml test` (uses embedded Mongo for tests)
 
+## Docker
+
+- Build and run with Docker (MongoDB Atlas):
+  - Copy `.env.example` to `.env` and set `SPRING_DATA_MONGODB_URI` to your Atlas connection string.
+  - `docker compose up --build` (or `docker-compose up --build`)
+  - App listens on `http://localhost:${SERVER_PORT:-8080}`
+- Standalone Docker build (no compose):
+  - `docker build -t review-tracker .`
+  - `docker run -p 8080:8080 -e SPRING_DATA_MONGODB_URI='<atlas-uri>' review-tracker`
+- Note on Atlas:
+  - Create a database user (readWrite on your DB), allow your IP or environment in Atlas Network Access.
+  - Connection string format: `mongodb+srv://user:pass@cluster.example.mongodb.net/review-tracker?retryWrites=true&w=majority&appName=ReviewTracker`
+
 ## Feature Overview
 
 - Reviews: create, view, update, delete; search and pagination.
@@ -84,4 +97,3 @@ A full‑stack app to track product review and refund workflows. It provides a R
 ---
 
 For questions or PR reviews, open an issue or mention maintainers in your PR.
-

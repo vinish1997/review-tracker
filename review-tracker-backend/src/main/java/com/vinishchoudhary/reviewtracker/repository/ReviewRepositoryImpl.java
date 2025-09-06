@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 
 @Repository
@@ -126,43 +127,43 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         List<AggregationOperation> ops = new ArrayList<>();
 
         // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
-        org.bson.Document amountAndLessPresent = new org.bson.Document("$and", java.util.List.of(
-                new org.bson.Document("$ne", java.util.List.of("$amountRupees", null)),
-                new org.bson.Document("$ne", java.util.List.of("$lessRupees", null))
+        org.bson.Document amountAndLessPresent = new org.bson.Document("$and", java.util.Arrays.asList(
+                new org.bson.Document("$ne", java.util.Arrays.asList("$amountRupees", null)),
+                new org.bson.Document("$ne", java.util.Arrays.asList("$lessRupees", null))
         ));
         org.bson.Document fallbackSubtract = new org.bson.Document("$cond",
-                java.util.List.of(
+                java.util.Arrays.asList(
                         amountAndLessPresent,
-                        new org.bson.Document("$subtract", java.util.List.of("$amountRupees", "$lessRupees")),
+                        new org.bson.Document("$subtract", java.util.Arrays.asList("$amountRupees", "$lessRupees")),
                         0
                 )
         );
         org.bson.Document computedRefundExpr = new org.bson.Document("$ifNull",
-                java.util.List.of("$refundAmountRupees", fallbackSubtract)
+                java.util.Arrays.asList("$refundAmountRupees", fallbackSubtract)
         );
         ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
 
         // Precompute 'completed' flag (flow finished) per dealType for pending/overdue logic
         org.bson.Document completedExpr = new org.bson.Document("$switch",
-                new org.bson.Document("branches", java.util.List.of(
-                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.List.of("$dealType", "REVIEW_PUBLISHED")))
-                                .append("then", new org.bson.Document("$and", java.util.List.of(
-                                        new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)),
-                                        new org.bson.Document("$ne", java.util.List.of("$reviewAcceptedDate", null)),
-                                        new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)),
-                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null))
+                new org.bson.Document("branches", java.util.Arrays.asList(
+                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.Arrays.asList("$dealType", "REVIEW_PUBLISHED")))
+                                .append("then", new org.bson.Document("$and", java.util.Arrays.asList(
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$reviewSubmitDate", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$reviewAcceptedDate", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$refundFormSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null))
                                 ))),
-                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.List.of("$dealType", "RATING_ONLY")))
-                                .append("then", new org.bson.Document("$and", java.util.List.of(
-                                        new org.bson.Document("$ne", java.util.List.of("$ratingSubmittedDate", null)),
-                                        new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)),
-                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null))
+                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.Arrays.asList("$dealType", "RATING_ONLY")))
+                                .append("then", new org.bson.Document("$and", java.util.Arrays.asList(
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$ratingSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$refundFormSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null))
                                 ))),
-                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.List.of("$dealType", "REVIEW_SUBMISSION")))
-                                .append("then", new org.bson.Document("$and", java.util.List.of(
-                                        new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)),
-                                        new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)),
-                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null))
+                        new org.bson.Document("case", new org.bson.Document("$eq", java.util.Arrays.asList("$dealType", "REVIEW_SUBMISSION")))
+                                .append("then", new org.bson.Document("$and", java.util.Arrays.asList(
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$reviewSubmitDate", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$refundFormSubmittedDate", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null))
                                 )))
                 )).append("default", false));
         ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("completed", completedExpr)));
@@ -191,33 +192,33 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         org.bson.Document facet = new org.bson.Document();
 
         // totals
-        facet.append("totals", java.util.List.of(
+        facet.append("totals", java.util.Arrays.asList(
                 new org.bson.Document("$group", new org.bson.Document("_id", null)
                         .append("totalReviews", new org.bson.Document("$sum", 1))
                         .append("totalReceived", new org.bson.Document("$sum",
-                                new org.bson.Document("$cond", java.util.List.of(
-                                        new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null)),
-                                        new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")),
+                                new org.bson.Document("$cond", java.util.Arrays.asList(
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null)),
+                                        new org.bson.Document("$ifNull", java.util.Arrays.asList("$refundAmountRupees", "$computedRefund")),
                                         0
                                 ))))
                         .append("countReceived", new org.bson.Document("$sum",
-                                new org.bson.Document("$cond", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null)), 1, 0))))
+                                new org.bson.Document("$cond", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null)), 1, 0))))
                         .append("pendingAmount", new org.bson.Document("$sum",
-                                new org.bson.Document("$cond", java.util.List.of(new org.bson.Document("$eq", java.util.List.of("$paymentReceivedDate", null)), "$computedRefund", 0))))
+                                new org.bson.Document("$cond", java.util.Arrays.asList(new org.bson.Document("$eq", java.util.Arrays.asList("$paymentReceivedDate", null)), "$computedRefund", 0))))
                         .append("submittedCount", new org.bson.Document("$sum",
-                                new org.bson.Document("$cond", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)), 1, 0))))
+                                new org.bson.Document("$cond", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$reviewSubmitDate", null)), 1, 0))))
                 ),
                 new org.bson.Document("$project", new org.bson.Document("_id", 0)
                         .append("totalReviews", 1)
                         .append("totalPaymentReceived", "$totalReceived")
-                        .append("averageRefund", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$gt", java.util.List.of("$countReceived", 0)),
-                                new org.bson.Document("$divide", java.util.List.of("$totalReceived", "$countReceived")),
+                        .append("averageRefund", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$gt", java.util.Arrays.asList("$countReceived", 0)),
+                                new org.bson.Document("$divide", java.util.Arrays.asList("$totalReceived", "$countReceived")),
                                 0
                         )))
                         .append("paymentPendingAmount", "$pendingAmount")
                         .append("reviewsSubmitted", "$submittedCount")
-                        .append("reviewsPending", new org.bson.Document("$subtract", java.util.List.of("$totalReviews", "$submittedCount")))
+                        .append("reviewsPending", new org.bson.Document("$subtract", java.util.Arrays.asList("$totalReviews", "$submittedCount")))
                 )
         ));
 
@@ -279,35 +280,35 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
                 new org.bson.Document("$group", new org.bson.Document("_id", "$bucket").append("c", new org.bson.Document("$sum", 1)))
         ));
 
-        facet.append("avgDurations", java.util.List.of(
+        facet.append("avgDurations", java.util.Arrays.asList(
                 new org.bson.Document("$project", new org.bson.Document()
-                        .append("d1", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$orderedDate", null)), new org.bson.Document("$ne", java.util.List.of("$deliveryDate", null)))),
-                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$deliveryDate", "$orderedDate")), 86400000)),
+                        .append("d1", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$orderedDate", null)), new org.bson.Document("$ne", java.util.Arrays.asList("$deliveryDate", null)))),
+                                new org.bson.Document("$divide", java.util.Arrays.asList(new org.bson.Document("$subtract", java.util.Arrays.asList("$deliveryDate", "$orderedDate")), 86400000)),
                                 null)))
-                        .append("d2", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$deliveryDate", null)), new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)))),
-                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$reviewSubmitDate", "$deliveryDate")), 86400000)),
+                        .append("d2", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$deliveryDate", null)), new org.bson.Document("$ne", java.util.Arrays.asList("$reviewSubmitDate", null)))),
+                                new org.bson.Document("$divide", java.util.Arrays.asList(new org.bson.Document("$subtract", java.util.Arrays.asList("$reviewSubmitDate", "$deliveryDate")), 86400000)),
                                 null)))
-                        .append("d3", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)), new org.bson.Document("$ne", java.util.List.of("$reviewAcceptedDate", null)))),
-                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$reviewAcceptedDate", "$reviewSubmitDate")), 86400000)),
+                        .append("d3", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$reviewSubmitDate", null)), new org.bson.Document("$ne", java.util.Arrays.asList("$reviewAcceptedDate", null)))),
+                                new org.bson.Document("$divide", java.util.Arrays.asList(new org.bson.Document("$subtract", java.util.Arrays.asList("$reviewAcceptedDate", "$reviewSubmitDate")), 86400000)),
                                 null)))
-                        .append("d4", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$deliveryDate", null)), new org.bson.Document("$ne", java.util.List.of("$ratingSubmittedDate", null)))),
-                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$ratingSubmittedDate", "$deliveryDate")), 86400000)),
+                        .append("d4", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$deliveryDate", null)), new org.bson.Document("$ne", java.util.Arrays.asList("$ratingSubmittedDate", null)))),
+                                new org.bson.Document("$divide", java.util.Arrays.asList(new org.bson.Document("$subtract", java.util.Arrays.asList("$ratingSubmittedDate", "$deliveryDate")), 86400000)),
                                 null)))
-                        .append("d5", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$reviewSubmitDate", null)), new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)))),
-                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$refundFormSubmittedDate", "$reviewSubmitDate")), 86400000)),
+                        .append("d5", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$reviewSubmitDate", null)), new org.bson.Document("$ne", java.util.Arrays.asList("$refundFormSubmittedDate", null)))),
+                                new org.bson.Document("$divide", java.util.Arrays.asList(new org.bson.Document("$subtract", java.util.Arrays.asList("$refundFormSubmittedDate", "$reviewSubmitDate")), 86400000)),
                                 null)))
-                        .append("d6", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$ratingSubmittedDate", null)), new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)))),
-                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$refundFormSubmittedDate", "$ratingSubmittedDate")), 86400000)),
+                        .append("d6", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$ratingSubmittedDate", null)), new org.bson.Document("$ne", java.util.Arrays.asList("$refundFormSubmittedDate", null)))),
+                                new org.bson.Document("$divide", java.util.Arrays.asList(new org.bson.Document("$subtract", java.util.Arrays.asList("$refundFormSubmittedDate", "$ratingSubmittedDate")), 86400000)),
                                 null)))
-                        .append("d7", new org.bson.Document("$cond", java.util.List.of(
-                                new org.bson.Document("$and", java.util.List.of(new org.bson.Document("$ne", java.util.List.of("$refundFormSubmittedDate", null)), new org.bson.Document("$ne", java.util.List.of("$paymentReceivedDate", null)))),
-                                new org.bson.Document("$divide", java.util.List.of(new org.bson.Document("$subtract", java.util.List.of("$paymentReceivedDate", "$refundFormSubmittedDate")), 86400000)),
+                        .append("d7", new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(new org.bson.Document("$ne", java.util.Arrays.asList("$refundFormSubmittedDate", null)), new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null)))),
+                                new org.bson.Document("$divide", java.util.Arrays.asList(new org.bson.Document("$subtract", java.util.Arrays.asList("$paymentReceivedDate", "$refundFormSubmittedDate")), 86400000)),
                                 null)))
                 ),
                 new org.bson.Document("$group", new org.bson.Document("_id", null)
@@ -417,19 +418,19 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
     private java.util.Map<String, Object> amountByField(String field) {
         java.util.List<AggregationOperation> ops = new java.util.ArrayList<>();
         // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
-        org.bson.Document amountAndLessPresent2 = new org.bson.Document("$and", java.util.List.of(
-                new org.bson.Document("$ne", java.util.List.of("$amountRupees", null)),
-                new org.bson.Document("$ne", java.util.List.of("$lessRupees", null))
+        org.bson.Document amountAndLessPresent2 = new org.bson.Document("$and", java.util.Arrays.asList(
+                new org.bson.Document("$ne", java.util.Arrays.asList("$amountRupees", null)),
+                new org.bson.Document("$ne", java.util.Arrays.asList("$lessRupees", null))
         ));
         org.bson.Document fallbackSubtract2 = new org.bson.Document("$cond",
-                java.util.List.of(
+                java.util.Arrays.asList(
                         amountAndLessPresent2,
-                        new org.bson.Document("$subtract", java.util.List.of("$amountRupees", "$lessRupees")),
+                        new org.bson.Document("$subtract", java.util.Arrays.asList("$amountRupees", "$lessRupees")),
                         0
                 )
         );
         org.bson.Document computedRefundExpr = new org.bson.Document("$ifNull",
-                java.util.List.of("$refundAmountRupees", fallbackSubtract2)
+                java.util.Arrays.asList("$refundAmountRupees", fallbackSubtract2)
         );
         ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
 

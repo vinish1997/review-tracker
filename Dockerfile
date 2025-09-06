@@ -18,7 +18,8 @@ RUN rm -rf review-tracker-backend/src/main/resources/static && \
     mkdir -p review-tracker-backend/src/main/resources/static
 COPY --from=ui-build /app/review-tracker-ui/dist/ review-tracker-backend/src/main/resources/static/
 # Build the Spring Boot JAR
-RUN mvn -f review-tracker-backend/pom.xml -DskipTests package
+# Skip compiling and running tests for container builds
+RUN mvn -f review-tracker-backend/pom.xml -Dmaven.test.skip=true package
 
 # 3) Runtime image
 FROM eclipse-temurin:21-jre
@@ -28,4 +29,3 @@ COPY --from=backend-build /workspace/review-tracker-backend/target/review-tracke
 EXPOSE 8080
 # Expect MongoDB Atlas URI via SPRING_DATA_MONGODB_URI, and optional SERVER_PORT
 ENTRYPOINT ["sh","-c","java $JAVA_OPTS -jar /app/app.jar"]
-

@@ -28,7 +28,7 @@ export default function Archive() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const criteria = { status: 'payment received', platformId: platformId || undefined, mediatorId: mediatorId || undefined, productNameContains: search || undefined, orderIdContains: search || undefined };
+    const criteria = { statusIn: ['payment received'], platformId: platformId || undefined, mediatorId: mediatorId || undefined, productNameContains: search || undefined, orderIdContains: search || undefined };
     const [res, agg] = await Promise.all([
       searchReviews(criteria, { page, size, sort: 'paymentReceivedDate', dir: 'DESC' }),
       apiAggregates({ statusIn: ['payment received'], platformIdIn: platformId ? [platformId] : undefined, mediatorIdIn: mediatorId ? [mediatorId] : undefined, productNameContains: search || undefined, orderIdContains: search || undefined })

@@ -85,6 +85,10 @@ public class ReviewController {
     public PageResponse<Review> searchGet(
             @RequestParam(required = false) String productNameContains,
             @RequestParam(required = false) String orderIdContains,
+            @RequestParam(required = false) String platformId,
+            @RequestParam(required = false) String mediatorId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String dealType,
             @RequestParam(required = false) List<String> platformIdIn,
             @RequestParam(required = false) List<String> mediatorIdIn,
             @RequestParam(required = false) List<String> statusIn,
@@ -95,6 +99,10 @@ public class ReviewController {
             @RequestParam(required = false, defaultValue = "DESC") String dir
     ) {
         ReviewSearchCriteria criteria = ReviewSearchCriteria.builder()
+                .platformId(emptyToNull(platformId))
+                .mediatorId(emptyToNull(mediatorId))
+                .status(emptyToNull(status))
+                .dealType(emptyToNull(dealType))
                 .productNameContains(emptyToNull(productNameContains))
                 .orderIdContains(emptyToNull(orderIdContains))
                 .platformIdIn(normalizeList(platformIdIn))

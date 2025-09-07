@@ -332,7 +332,20 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
         java.util.List<org.bson.Document> totals = (java.util.List<org.bson.Document>) root.get("totals");
         if (totals != null && !totals.isEmpty()) {
-            out.putAll(totals.get(0));
+            org.bson.Document t = totals.get(0);
+            // Normalize numeric types for the API (avoid Decimal128 leaking to JSON)
+            Object tr = t.get("totalReviews");
+            Object tpr = t.get("totalPaymentReceived");
+            Object ar = t.get("averageRefund");
+            Object ppa = t.get("paymentPendingAmount");
+            Object rs = t.get("reviewsSubmitted");
+            Object rp = t.get("reviewsPending");
+            out.put("totalReviews", (tr instanceof Number n) ? n.longValue() : 0L);
+            out.put("totalPaymentReceived", (tpr instanceof Number n) ? n.doubleValue() : 0.0);
+            out.put("averageRefund", (ar instanceof Number n) ? n.doubleValue() : 0.0);
+            out.put("paymentPendingAmount", (ppa instanceof Number n) ? n.doubleValue() : 0.0);
+            out.put("reviewsSubmitted", (rs instanceof Number n) ? n.longValue() : 0L);
+            out.put("reviewsPending", (rp instanceof Number n) ? n.longValue() : 0L);
         }
         out.put("statusCounts", toCountMap((java.util.List<org.bson.Document>) root.get("statusCounts")));
         out.put("platformCounts", toCountMap((java.util.List<org.bson.Document>) root.get("platformCounts")));

@@ -125,7 +125,6 @@ export default function SharedView() {
       URL.revokeObjectURL(url);
     } catch (e) {
       alert('Export failed');
-      // eslint-disable-next-line no-console
       console.error('Export CSV failed', e);
     }
   };
@@ -155,7 +154,10 @@ export default function SharedView() {
     w.document.write(doc);
     w.document.close();
     w.focus();
-    setTimeout(() => { try { w.print(); } catch {} try { w.close(); } catch {} }, 100);
+    setTimeout(() => {
+      try { w.print(); } catch { void 0; }
+      try { w.close(); } catch { void 0; }
+    }, 100);
   };
 
   if (loading) return <div className="p-6">Loading…</div>;

@@ -70,6 +70,28 @@ A full‑stack app to track product review and refund workflows. It provides a R
   - Create a database user (readWrite on your DB), allow your IP or environment in Atlas Network Access.
   - Connection string format: `mongodb+srv://user:pass@cluster.example.mongodb.net/review-tracker?retryWrites=true&w=majority&appName=ReviewTracker`
 
+## GitHub Actions (CI/CD)
+
+This repo includes basic GitHub Actions workflows under `.github/workflows/`:
+
+- `ci.yml`: builds the UI and packages the backend on pushes/PRs to `main`. Uploads the JAR as an artifact.
+- `docker-publish.yml`: builds and pushes a Docker image to GitHub Container Registry (GHCR) as `ghcr.io/<owner>/review-tracker` on push to `main` and tags.
+- `deploy-ssh.yml`: manual (workflow_dispatch) deployment to a remote host via SSH. It pulls the GHCR image and runs it with Docker Compose.
+
+Setup steps:
+
+1) Enable GHCR permissions for the repo
+   - Nothing to set manually; the workflows use the built-in `GITHUB_TOKEN` with `packages: write` permission.
+
+2) (Optional) Remote deploy via SSH
+   - Add repository secrets: `SSH_HOST`, `SSH_USER`, `SSH_KEY` (private key), `SPRING_DATA_MONGODB_URI`, `SERVER_PORT` (e.g., 8080), and optionally `JAVA_OPTS`.
+   - Run the `Deploy via SSH` workflow from the Actions tab with `image_tag` set to `latest` or a specific SHA tag.
+
+3) Publish container to GHCR
+   - On merge to `main`, `docker-publish.yml` will push tags `latest`, `sha-<short>` etc.
+   - Pull locally: `docker pull ghcr.io/<owner>/review-tracker:latest`
+
+
 ## Feature Overview
 
 - Reviews: create, view, update, delete; search and pagination.

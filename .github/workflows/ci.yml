@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build UI and Backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install UI deps
+        working-directory: review-tracker-ui
+        run: npm ci
+
+      - name: Lint UI
+        working-directory: review-tracker-ui
+        run: npm run lint --if-present
+
+      - name: Build UI
+        working-directory: review-tracker-ui
+        run: npm run build
+      
+      - name: Inject built UI into backend static
+        run: |
+          rm -rf review-tracker-backend/src/main/resources/static
+          mkdir -p review-tracker-backend/src/main/resources/static
+          cp -r review-tracker-ui/dist/* review-tracker-backend/src/main/resources/static/
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Build backend (skip test compile and run)
+        run: mvn -f review-tracker-backend/pom.xml -B -Dmaven.test.skip=true package
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-tracker-jar
+          path: review-tracker-backend/target/review-tracker-backend-*.jar

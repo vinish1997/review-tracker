@@ -88,22 +88,37 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
             ops.add(context -> new org.bson.Document("$match", new org.bson.Document(new Criteria().andOperator(filters.toArray(new Criteria[0])).getCriteriaObject())));
         }
 
-        // Add computedRefund using $ifNull + $cond; coerce to numbers via $toDouble to handle strings/decimals
-        org.bson.Document computedRefundExpr = org.bson.Document.parse("{\n" +
-                "  \"$ifNull\": [ \"$refundAmountRupees\", {\n" +
-                "    \"$cond\": [ { \"$and\": [ { \"$ne\": [ \"$amountRupees\", null ] }, { \"$ne\": [ \"$lessRupees\", null ] } ] },\n" +
-                "               { \"$subtract\": [ { \"$toDouble\": \"$amountRupees\" }, { \"$toDouble\": \"$lessRupees\" } ] },\n" +
-                "               0 ]\n" +
-                "  } ]\n" +
-                "}");
+        // Add computedRefund using sanitized numeric fields (remove commas/spaces)
+        org.bson.Document sanitizeAmount = org.bson.Document.parse("{ \"$toDouble\": { \"$replaceAll\": { \"input\": { \"$replaceAll\": { \"input\": { \"$trim\": { \"input\": { \"$toString\": \"$amountRupees\" } } }, \"find\": \",\", \"replacement\": \"\" } }, \"find\": \" \", \"replacement\": \"\" } } }");
+        org.bson.Document sanitizeLess = org.bson.Document.parse("{ \"$toDouble\": { \"$replaceAll\": { \"input\": { \"$replaceAll\": { \"input\": { \"$trim\": { \"input\": { \"$toString\": \"$lessRupees\" } } }, \"find\": \",\", \"replacement\": \"\" } }, \"find\": \" \", \"replacement\": \"\" } } }");
+        org.bson.Document sanitizeRefund = org.bson.Document.parse("{ \"$toDouble\": { \"$replaceAll\": { \"input\": { \"$replaceAll\": { \"input\": { \"$trim\": { \"input\": { \"$toString\": \"$refundAmountRupees\" } } }, \"find\": \",\", \"replacement\": \"\" } }, \"find\": \" \", \"replacement\": \"\" } } }");
+
+        ops.add(context -> new org.bson.Document("$addFields",
+                new org.bson.Document("amountNum", sanitizeAmount)
+                        .append("lessNum", sanitizeLess)
+                        .append("refundNum", sanitizeRefund)));
+
+        org.bson.Document computedRefundExpr = new org.bson.Document("$ifNull",
+                java.util.Arrays.asList(
+                        sanitizeRefund,
+                        new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$amountNum", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$lessNum", null))
+                                )),
+                                new org.bson.Document("$subtract", java.util.Arrays.asList("$amountNum", "$lessNum")),
+                                0
+                        ))
+                )
+        );
 
         ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
 
         // group totals
         org.bson.Document groupFields = new org.bson.Document("_id", null)
                 .append("count", new org.bson.Document("$sum", 1))
-                .append("totalAmount", new org.bson.Document("$sum", new org.bson.Document("$toDouble", "$amountRupees")))
-                .append("totalRefund", new org.bson.Document("$sum", new org.bson.Document("$toDouble", "$computedRefund")));
+                .append("totalAmount", new org.bson.Document("$sum", "$amountNum"))
+                .append("totalRefund", new org.bson.Document("$sum", "$computedRefund"));
         ops.add(context -> new org.bson.Document("$group", groupFields));
 
         Aggregation agg = Aggregation.newAggregation(ops);
@@ -271,7 +286,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         facet.append("receivedByPlatform", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
                 new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$platformId", "unknown")))
-                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$toDouble", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund"))))))
+                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
         ));
         facet.append("pendingByPlatform", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
@@ -281,7 +296,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         facet.append("receivedByMediator", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
                 new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$mediatorId", "unknown")))
-                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$toDouble", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund"))))))
+                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
         ));
         facet.append("pendingByMediator", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),

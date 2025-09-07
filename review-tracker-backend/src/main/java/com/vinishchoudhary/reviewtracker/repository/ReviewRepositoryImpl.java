@@ -88,21 +88,36 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
             ops.add(context -> new org.bson.Document("$match", new org.bson.Document(new Criteria().andOperator(filters.toArray(new Criteria[0])).getCriteriaObject())));
         }
 
-        // Add computedRefund using $ifNull + $cond (JSON parse to avoid verbose builder)
-        org.bson.Document computedRefundExpr = org.bson.Document.parse("{\n" +
-                "  \"$ifNull\": [ \"$refundAmountRupees\", {\n" +
-                "    \"$cond\": [ { \"$and\": [ { \"$ne\": [ \"$amountRupees\", null ] }, { \"$ne\": [ \"$lessRupees\", null ] } ] },\n" +
-                "               { \"$subtract\": [ \"$amountRupees\", \"$lessRupees\" ] },\n" +
-                "               0 ]\n" +
-                "  } ]\n" +
-                "}");
+        // Add computedRefund using sanitized numeric fields (remove commas/spaces)
+        org.bson.Document sanitizeAmount = org.bson.Document.parse("{ \"$toDouble\": { \"$replaceAll\": { \"input\": { \"$replaceAll\": { \"input\": { \"$trim\": { \"input\": { \"$toString\": \"$amountRupees\" } } }, \"find\": \",\", \"replacement\": \"\" } }, \"find\": \" \", \"replacement\": \"\" } } }");
+        org.bson.Document sanitizeLess = org.bson.Document.parse("{ \"$toDouble\": { \"$replaceAll\": { \"input\": { \"$replaceAll\": { \"input\": { \"$trim\": { \"input\": { \"$toString\": \"$lessRupees\" } } }, \"find\": \",\", \"replacement\": \"\" } }, \"find\": \" \", \"replacement\": \"\" } } }");
+        org.bson.Document sanitizeRefund = org.bson.Document.parse("{ \"$toDouble\": { \"$replaceAll\": { \"input\": { \"$replaceAll\": { \"input\": { \"$trim\": { \"input\": { \"$toString\": \"$refundAmountRupees\" } } }, \"find\": \",\", \"replacement\": \"\" } }, \"find\": \" \", \"replacement\": \"\" } } }");
+
+        ops.add(context -> new org.bson.Document("$addFields",
+                new org.bson.Document("amountNum", sanitizeAmount)
+                        .append("lessNum", sanitizeLess)
+                        .append("refundNum", sanitizeRefund)));
+
+        org.bson.Document computedRefundExpr = new org.bson.Document("$ifNull",
+                java.util.Arrays.asList(
+                        sanitizeRefund,
+                        new org.bson.Document("$cond", java.util.Arrays.asList(
+                                new org.bson.Document("$and", java.util.Arrays.asList(
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$amountNum", null)),
+                                        new org.bson.Document("$ne", java.util.Arrays.asList("$lessNum", null))
+                                )),
+                                new org.bson.Document("$subtract", java.util.Arrays.asList("$amountNum", "$lessNum")),
+                                0
+                        ))
+                )
+        );
 
         ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
 
         // group totals
         org.bson.Document groupFields = new org.bson.Document("_id", null)
                 .append("count", new org.bson.Document("$sum", 1))
-                .append("totalAmount", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$amountRupees", 0))))
+                .append("totalAmount", new org.bson.Document("$sum", "$amountNum"))
                 .append("totalRefund", new org.bson.Document("$sum", "$computedRefund"));
         ops.add(context -> new org.bson.Document("$group", groupFields));
 
@@ -111,19 +126,27 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
                 .getUniqueMappedResult();
         java.util.Map<String, Object> out = new java.util.HashMap<>();
         if (result != null) {
-            out.put("count", ((Number) result.getOrDefault("count", 0)).longValue());
-            out.put("totalAmount", result.get("totalAmount"));
-            out.put("totalRefund", result.get("totalRefund"));
+            Object c = result.getOrDefault("count", 0);
+            Object ta = result.get("totalAmount");
+            Object tr = result.get("totalRefund");
+            out.put("count", (c instanceof Number n) ? n.longValue() : 0L);
+            out.put("totalAmount", (ta instanceof Number n) ? n.doubleValue() : 0.0);
+            out.put("totalRefund", (tr instanceof Number n) ? n.doubleValue() : 0.0);
         } else {
             out.put("count", 0L);
-            out.put("totalAmount", java.math.BigDecimal.ZERO);
-            out.put("totalRefund", java.math.BigDecimal.ZERO);
+            out.put("totalAmount", 0.0);
+            out.put("totalRefund", 0.0);
         }
         return out;
     }
 
     @Override
     public java.util.Map<String, Object> aggregatedDashboard() {
+        return aggregatedDashboard(null, null, null);
+    }
+
+    @Override
+    public java.util.Map<String, Object> aggregatedDashboard(String scope, java.time.LocalDate from, java.time.LocalDate to) {
         List<AggregationOperation> ops = new ArrayList<>();
 
         // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
@@ -188,6 +211,26 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -14); java.util.Date nowMinus14 = cal.getTime();
         cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -30); java.util.Date nowMinus30 = cal.getTime();
 
+        // Optional scope/date filters prior to facet
+        // Scope: 'received' => paymentReceivedDate != null; 'pending' => completed != true; else all
+        if ("received".equalsIgnoreCase(scope)) {
+            ops.add(context -> new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))));
+        } else if ("pending".equalsIgnoreCase(scope)) {
+            ops.add(context -> new org.bson.Document("$match", new org.bson.Document("completed", new org.bson.Document("$ne", true))));
+        }
+
+        // Date window (apply before facet): for 'received' use paymentReceivedDate; otherwise use createdAt
+        if (from != null || to != null) {
+            java.util.Date fromD = null, toD = null;
+            if (from != null) fromD = java.util.Date.from(from.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+            if (to != null) toD = java.util.Date.from(to.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+            String dateField = ("received".equalsIgnoreCase(scope)) ? "paymentReceivedDate" : "createdAt";
+            org.bson.Document range = new org.bson.Document();
+            if (fromD != null) range.append("$gte", fromD);
+            if (toD != null) range.append("$lt", toD);
+            ops.add(context -> new org.bson.Document("$match", new org.bson.Document(dateField, range)));
+        }
+
         // facet
         org.bson.Document facet = new org.bson.Document();
 
@@ -198,7 +241,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
                         .append("totalReceived", new org.bson.Document("$sum",
                                 new org.bson.Document("$cond", java.util.Arrays.asList(
                                         new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null)),
-                                        new org.bson.Document("$ifNull", java.util.Arrays.asList("$refundAmountRupees", "$computedRefund")),
+                                        "$computedRefund",
                                         0
                                 ))))
                         .append("countReceived", new org.bson.Document("$sum",
@@ -243,7 +286,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         facet.append("receivedByPlatform", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
                 new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$platformId", "unknown")))
-                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
+                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
         ));
         facet.append("pendingByPlatform", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
@@ -253,7 +296,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         facet.append("receivedByMediator", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
                 new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$mediatorId", "unknown")))
-                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
+                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
         ));
         facet.append("pendingByMediator", java.util.List.of(
                 new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
@@ -268,17 +311,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
                 new org.bson.Document("$count", "count")
         ));
 
-        facet.append("aging", java.util.List.of(
-                new org.bson.Document("$match", new org.bson.Document("anchorDate", new org.bson.Document("$ne", null))),
-                new org.bson.Document("$project", new org.bson.Document("bucket",
-                        new org.bson.Document("$switch", new org.bson.Document("branches", java.util.List.of(
-                                new org.bson.Document("case", new org.bson.Document("$gte", java.util.List.of("$anchorDate", nowMinus7))).append("then", "0-7"),
-                                new org.bson.Document("case", new org.bson.Document("$gte", java.util.List.of("$anchorDate", nowMinus14))).append("then", "8-14"),
-                                new org.bson.Document("case", new org.bson.Document("$gte", java.util.List.of("$anchorDate", nowMinus30))).append("then", "15-30")
-                        )).append("default", "31+")
-                        ))),
-                new org.bson.Document("$group", new org.bson.Document("_id", "$bucket").append("c", new org.bson.Document("$sum", 1)))
-        ));
+        // aging removed per requirements
 
         facet.append("avgDurations", java.util.Arrays.asList(
                 new org.bson.Document("$project", new org.bson.Document()
@@ -324,6 +357,20 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
         ops.add(context -> new org.bson.Document("$facet", facet));
 
+        // Apply date range: if provided and scope==received, use paymentReceivedDate; else use createdAt
+        if (from != null || to != null) {
+            java.util.Date fromD = null, toD = null;
+            if (from != null) fromD = java.util.Date.from(from.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+            if (to != null) toD = java.util.Date.from(to.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+            org.bson.Document cond = new org.bson.Document();
+            String field = ("received".equalsIgnoreCase(scope)) ? "paymentReceivedDate" : "createdAt";
+            org.bson.Document range = new org.bson.Document();
+            if (fromD != null) range.append("$gte", fromD);
+            if (toD != null) range.append("$lt", toD);
+            cond.append(field, range);
+            ops.add(context -> new org.bson.Document("$match", cond));
+        }
+
         Aggregation agg = Aggregation.newAggregation(ops);
         org.bson.Document root = mongoTemplate.aggregate(agg, Review.class, org.bson.Document.class)
                 .getUniqueMappedResult();
@@ -332,7 +379,20 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
         java.util.List<org.bson.Document> totals = (java.util.List<org.bson.Document>) root.get("totals");
         if (totals != null && !totals.isEmpty()) {
-            out.putAll(totals.get(0));
+            org.bson.Document t = totals.get(0);
+            // Normalize numeric types for the API (avoid Decimal128 leaking to JSON)
+            Object tr = t.get("totalReviews");
+            Object tpr = t.get("totalPaymentReceived");
+            Object ar = t.get("averageRefund");
+            Object ppa = t.get("paymentPendingAmount");
+            Object rs = t.get("reviewsSubmitted");
+            Object rp = t.get("reviewsPending");
+            out.put("totalReviews", (tr instanceof Number n) ? n.longValue() : 0L);
+            out.put("totalPaymentReceived", (tpr instanceof Number n) ? n.doubleValue() : 0.0);
+            out.put("averageRefund", (ar instanceof Number n) ? n.doubleValue() : 0.0);
+            out.put("paymentPendingAmount", (ppa instanceof Number n) ? n.doubleValue() : 0.0);
+            out.put("reviewsSubmitted", (rs instanceof Number n) ? n.longValue() : 0L);
+            out.put("reviewsPending", (rp instanceof Number n) ? n.longValue() : 0L);
         }
         out.put("statusCounts", toCountMap((java.util.List<org.bson.Document>) root.get("statusCounts")));
         out.put("platformCounts", toCountMap((java.util.List<org.bson.Document>) root.get("platformCounts")));
@@ -351,26 +411,16 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         }
         out.put("overdueSinceDeliveryCount", ov);
 
-        java.util.List<org.bson.Document> aging = (java.util.List<org.bson.Document>) root.get("aging");
-        java.util.Map<String, Long> agingBuckets = new java.util.LinkedHashMap<>();
-        agingBuckets.put("0-7", 0L); agingBuckets.put("8-14", 0L); agingBuckets.put("15-30", 0L); agingBuckets.put("31+", 0L);
-        if (aging != null) for (org.bson.Document d : aging) agingBuckets.put(String.valueOf(d.get("_id")), ((Number)d.get("c")).longValue());
-        out.put("agingBuckets", agingBuckets);
+        // agingBuckets removed
 
-        java.util.List<org.bson.Document> avgs = (java.util.List<org.bson.Document>) root.get("avgDurations");
-        java.util.Map<String, Double> avgDurations = new java.util.LinkedHashMap<>();
-        if (avgs != null && !avgs.isEmpty()) {
-            org.bson.Document a = avgs.get(0);
-            avgDurations.put("orderedToDelivery", toDouble(a.get("avg1")));
-            avgDurations.put("deliveryToReviewSubmit", toDouble(a.get("avg2")));
-            avgDurations.put("reviewSubmitToReviewAccepted", toDouble(a.get("avg3")));
-            avgDurations.put("deliveryToRatingSubmitted", toDouble(a.get("avg4")));
-            avgDurations.put("reviewSubmitToRefundForm", toDouble(a.get("avg5")));
-            avgDurations.put("ratingSubmittedToRefundForm", toDouble(a.get("avg6")));
-            avgDurations.put("refundFormToPayment", toDouble(a.get("avg7")));
-        }
-        out.put("avgStageDurations", avgDurations);
+        // avgStageDurations removed
 
+        // reviewsPending should equal delivered count
+        try {
+            java.util.Map<String, Long> sc = (java.util.Map<String, Long>) out.get("statusCounts");
+            long delivered = sc != null && sc.get("delivered") != null ? sc.get("delivered") : 0L;
+            out.put("reviewsPending", delivered);
+        } catch (Exception ignore) { }
         return out;
     }
 
@@ -407,15 +457,25 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
     @Override
     public java.util.Map<String, Object> amountByPlatform() {
-        return amountByField("platformId");
+        return amountByField("platformId", null, null, null);
     }
 
     @Override
     public java.util.Map<String, Object> amountByMediator() {
-        return amountByField("mediatorId");
+        return amountByField("mediatorId", null, null, null);
     }
 
-    private java.util.Map<String, Object> amountByField(String field) {
+    @Override
+    public java.util.Map<String, Object> amountByPlatform(String scope, java.time.LocalDate from, java.time.LocalDate to) {
+        return amountByField("platformId", scope, from, to);
+    }
+
+    @Override
+    public java.util.Map<String, Object> amountByMediator(String scope, java.time.LocalDate from, java.time.LocalDate to) {
+        return amountByField("mediatorId", scope, from, to);
+    }
+
+    private java.util.Map<String, Object> amountByField(String field, String scope, java.time.LocalDate from, java.time.LocalDate to) {
         java.util.List<AggregationOperation> ops = new java.util.ArrayList<>();
         // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
         org.bson.Document amountAndLessPresent2 = new org.bson.Document("$and", java.util.Arrays.asList(
@@ -434,17 +494,41 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         );
         ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
 
+        java.util.Date fromD = null, toD = null;
+        if (from != null) fromD = java.util.Date.from(from.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+        if (to != null) toD = java.util.Date.from(to.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+
         org.bson.Document facet = new org.bson.Document();
-        facet.append("received", java.util.List.of(
-                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
-                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
-                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
-        ));
-        facet.append("pending", java.util.List.of(
-                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
-                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
-                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
-        ));
+        // Received facet with optional date window on paymentReceivedDate
+        {
+            org.bson.Document match = new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null));
+            if (fromD != null || toD != null) {
+                org.bson.Document range = new org.bson.Document();
+                if (fromD != null) range.append("$gte", fromD);
+                if (toD != null) range.append("$lt", toD);
+                match.append("paymentReceivedDate", new org.bson.Document("$ne", null).append("$gte", range.get("$gte")).append("$lt", range.get("$lt")));
+            }
+            facet.append("received", java.util.List.of(
+                    new org.bson.Document("$match", match),
+                    new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
+                            .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
+            ));
+        }
+        // Pending facet with optional date window on createdAt
+        {
+            org.bson.Document match = new org.bson.Document("paymentReceivedDate", null);
+            if (fromD != null || toD != null) {
+                org.bson.Document range = new org.bson.Document();
+                if (fromD != null) range.append("$gte", fromD);
+                if (toD != null) range.append("$lt", toD);
+                match.append("createdAt", range);
+            }
+            facet.append("pending", java.util.List.of(
+                    new org.bson.Document("$match", match),
+                    new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
+                            .append("amt", new org.bson.Document("$sum", "$computedRefund")))
+            ));
+        }
 
         ops.add(context -> new org.bson.Document("$facet", facet));
         Aggregation agg = Aggregation.newAggregation(ops);

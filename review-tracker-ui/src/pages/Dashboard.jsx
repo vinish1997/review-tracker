@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { formatCurrencyINR as formatCurrency } from "../utils/format";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { formatCurrencyINR as formatCurrency, formatInt } from "../utils/format";
 import axios from "axios";
 import { getPlatforms, getMediators } from "../api/lookups";
 import { useNavigate } from "react-router-dom";
@@ -10,34 +10,76 @@ export default function Dashboard() {
   const [mediatorMap, setMediatorMap] = useState({});
   const [platAmts, setPlatAmts] = useState(null);
   const [medAmts, setMedAmts] = useState(null);
+  const [topN, setTopN] = useState(8); // collapse long tails into "Others"
+  const [countMode, setCountMode] = useState('count'); // 'count' | 'percent'
   const navigate = useNavigate();
+  const [scope, setScope] = useState('all'); // 'all' | 'received' | 'pending'
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
   useEffect(() => {
-    axios.get("/api/reviews/dashboard").then(res => setData(res.data));
-    axios.get("/api/reviews/stats/amounts/platform").then(res => setPlatAmts(res.data)).catch(()=>{});
-    axios.get("/api/reviews/stats/amounts/mediator").then(res => setMedAmts(res.data)).catch(()=>{});
     Promise.all([getPlatforms(), getMediators()]).then(([p, m]) => {
       setPlatformMap(Object.fromEntries((p.data||[]).map(x=>[x.id, x.name])));
       setMediatorMap(Object.fromEntries((m.data||[]).map(x=>[x.id, x.name])));
     });
   }, []);
 
+  // Load persisted dashboard controls
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('dash-scope'); if (s) setScope(s);
+      const f = localStorage.getItem('dash-from'); if (f) setFrom(f);
+      const t = localStorage.getItem('dash-to'); if (t) setTo(t);
+      const cm = localStorage.getItem('dash-count-mode'); if (cm) setCountMode(cm);
+      const tn = localStorage.getItem('dash-top-n'); if (tn) setTopN(Number(tn));
+    } catch { /* noop */ }
+  }, []);
+
+  // Persist controls when changed
+  useEffect(() => { try { localStorage.setItem('dash-scope', scope); } catch { /* noop */ } }, [scope]);
+  useEffect(() => { try { from ? localStorage.setItem('dash-from', from) : localStorage.removeItem('dash-from'); } catch { /* noop */ } }, [from]);
+  useEffect(() => { try { to ? localStorage.setItem('dash-to', to) : localStorage.removeItem('dash-to'); } catch { /* noop */ } }, [to]);
+  useEffect(() => { try { localStorage.setItem('dash-count-mode', countMode); } catch { /* noop */ } }, [countMode]);
+  useEffect(() => { try { localStorage.setItem('dash-top-n', String(topN)); } catch { /* noop */ } }, [topN]);
+
+  useEffect(() => {
+    const params = {};
+    if (scope && scope !== 'all') params.scope = scope;
+    if (from) params.from = from;
+    if (to) params.to = to;
+    axios.get("/api/reviews/dashboard", { params }).then(res => setData(res.data));
+    axios.get("/api/reviews/stats/amounts/platform", { params }).then(res => setPlatAmts(res.data)).catch(()=>{});
+    axios.get("/api/reviews/stats/amounts/mediator", { params }).then(res => setMedAmts(res.data)).catch(()=>{});
+  }, [scope, from, to]);
+
   const d = data || { statusCounts: {}, platformCounts: {}, dealTypeCounts: {}, mediatorCounts: {} };
-  const avg = d?.avgStageDurations || {};
-  const aging = d?.agingBuckets || {};
   const statusEntries = Object.entries(d.statusCounts || {});
-  const platformEntries = useMemo(() => Object.entries(d.platformCounts || {})
+  const platformEntriesRaw = useMemo(() => Object.entries(d.platformCounts || {})
     .map(([id,c]) => [platformMap[id] || id, c])
     .sort((a,b) => b[1]-a[1])
   , [d.platformCounts, platformMap]);
-  const dealEntries = useMemo(() => Object.entries(d.dealTypeCounts || {})
+  const dealEntriesRaw = useMemo(() => Object.entries(d.dealTypeCounts || {})
     .map(([code,c]) => [dealTypeLabel(code), c])
     .sort((a,b) => b[1]-a[1])
   , [d.dealTypeCounts]);
-  const mediatorEntries = useMemo(() => Object.entries(d.mediatorCounts || {})
+  const mediatorEntriesRaw = useMemo(() => Object.entries(d.mediatorCounts || {})
     .map(([id,c]) => [mediatorMap[id] || id, c])
     .sort((a,b) => b[1]-a[1])
   , [d.mediatorCounts, mediatorMap]);
+
+  const applyTop = useCallback((entries) => {
+    if (!Array.isArray(entries)) return [];
+    if (!topN || entries.length <= topN) return entries;
+    const keep = Math.max(1, topN - 1);
+    const head = entries.slice(0, keep);
+    const others = entries.slice(keep).reduce((s, [,v]) => s + (Number(v)||0), 0);
+    return [...head, ['Others', others]];
+  }, [topN]);
+
+  const platformEntries = useMemo(() => applyTop(platformEntriesRaw), [platformEntriesRaw, applyTop]);
+  // Deal types are only three – no need for Top-N collapse
+  const dealEntries = useMemo(() => dealEntriesRaw, [dealEntriesRaw]);
+  const mediatorEntries = useMemo(() => applyTop(mediatorEntriesRaw), [mediatorEntriesRaw, applyTop]);
 
   const donutColors = {
     'ordered': '#94a3b8',
@@ -66,6 +108,33 @@ export default function Dashboard() {
       <div className="-m-6 p-6 rounded-b-xl bg-gradient-to-r from-indigo-50 via-white to-emerald-50">
         <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
         <p className="text-gray-600">A quick overview of your review operations</p>
+      </div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs text-gray-600 inline-flex items-center gap-2">
+          <span>Scope:</span>
+          {['all','received','pending'].map(s => (
+            <button key={s} className={`px-2 py-0.5 border rounded capitalize ${scope===s?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setScope(s)}>{s}</button>
+          ))}
+          <span className="ml-2">From</span>
+          <input type="date" className="border rounded px-2 py-0.5" value={from} onChange={e=> setFrom(e.target.value)} />
+          <span>To</span>
+          <input type="date" className="border rounded px-2 py-0.5" value={to} onChange={e=> setTo(e.target.value)} />
+          <button className="px-2 py-0.5 border rounded hover:bg-gray-50" onClick={()=> { setFrom(''); setTo(''); }}>Clear</button>
+        </div>
+        <div className="text-xs text-gray-600 inline-flex items-center gap-1">
+          <span>Counts:</span>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='count'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('count')}>Count</button>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='percent'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('percent')}>%</button>
+        </div>
+      </div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="text-xs text-gray-600 inline-flex items-center gap-1">
+          <span>Counts:</span>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='count'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('count')}>Count</button>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='percent'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('percent')}>%</button>
+        </div>
       </div>
       {(!data) ? (
         <div className="space-y-4 animate-pulse">
@@ -103,54 +172,49 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-8 gap-4">
-            <Card title="Total Reviews" value={data.totalReviews} onClick={()=> navigate('/reviews')} clickable />
-        <Card title="Payment Received" value={formatCurrency(data.totalPaymentReceived)} onClick={()=> navigate('/archive')} clickable />
-        <Card title="Avg Refund" value={formatCurrency(data.averageRefund)} />
-            <Card title="Pending Review/Rating" value={Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
-            <Card title="Pending Refund Form" value={Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
-            <Card title="Pending Payment" value={Number(data.statusCounts?.["refund form submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
-            <Card title="Payment Pending Amt" value={`₹${data.paymentPendingAmount || 0}`} />
-            <Card title=">7d Since Delivery" value={data.overdueSinceDeliveryCount || 0} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-4">
+            <Card title="Total Reviews" value={formatInt(data.totalReviews)} onClick={()=> navigate('/reviews')} clickable />
+            <Card title="Payment Received" value={formatCurrency(data.totalPaymentReceived)} onClick={()=> navigate('/archive')} clickable />
+            {/* Avg Refund removed */}
+            <Card title="Pending Review/Rating" value={formatInt(Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0))} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
+            <Card title="Pending Refund Form" value={formatInt(Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
+            <Card title="Pending Payment" value={formatInt(Number(data.statusCounts?.["refund form submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
+            <Card title="Payment Pending Amt" value={formatCurrency(data.paymentPendingAmount)} />
+            <Card title=">7d Since Delivery" value={formatInt(data.overdueSinceDeliveryCount || 0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Panel title="By Status">
               <div className="flex items-center gap-4">
-                <div className="w-24 h-24 rounded-full" style={donut.style} />
-                <List entries={statusEntries} legend={donut.legend} />
+                <div className="w-28 h-28 md:w-32 md:h-32 rounded-full" style={donut.style} />
+                <List entries={statusEntries} legend={donut.legend} mode={countMode} />
               </div>
             </Panel>
-            <Panel title="Platforms (Count)">
-              <Pie entries={platformEntries} />
+            <Panel title={TopTitle('Platforms (Count)', topN, setTopN)}>
+              <Pie entries={platformEntries} mode={countMode} />
             </Panel>
-            <Panel title="Deal Types (Count)">
-              <Pie entries={dealEntries} />
+            <Panel title={'Deal Types (Count)'}>
+              <Pie entries={dealEntries} mode={countMode} />
             </Panel>
-            <Panel title="Mediators (Count)">
-              <Pie entries={mediatorEntries} />
+            <Panel title={TopTitle('Mediators (Count)', topN, setTopN)}>
+              <Pie entries={mediatorEntries} mode={countMode} />
             </Panel>
-            <Panel title="Aging Buckets (Next Step)">
-              <Bars entries={Object.entries(aging)} />
-            </Panel>
-            <Panel title="Stage Durations (Avg Days)">
-              <KeyVals entries={Object.entries(avg).map(([k,v])=>[labelOfDuration(k), Number.isFinite(v)? Math.round(v) : 0])} />
-            </Panel>
+            {/* Aging and Stage Durations panels removed */}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-        <Panel title="Amount Received by Platform">
-          <BarCurrency entries={Object.entries((platAmts?.amountReceivedByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
-        </Panel>
-        <Panel title="Amount Pending by Platform">
-          <BarCurrency entries={Object.entries((platAmts?.amountPendingByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
-        </Panel>
-        <Panel title="Amount Received by Mediator">
-          <BarCurrency entries={Object.entries((medAmts?.amountReceivedByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
-        </Panel>
-        <Panel title="Amount Pending by Mediator">
-          <BarCurrency entries={Object.entries((medAmts?.amountPendingByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
-        </Panel>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Panel title={TopTitle('Amount Received by Platform', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((platAmts?.amountReceivedByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)]))} />
+            </Panel>
+            <Panel title={TopTitle('Amount Pending by Platform', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((platAmts?.amountPendingByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)]))} />
+            </Panel>
+            <Panel title={TopTitle('Amount Received by Mediator', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((medAmts?.amountReceivedByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)]))} />
+            </Panel>
+            <Panel title={TopTitle('Amount Pending by Mediator', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((medAmts?.amountPendingByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)]))} />
+            </Panel>
           </div>
         </>
       )}
@@ -176,33 +240,58 @@ function Panel({ title, children }) {
   );
 }
 
-function List({ entries, legend }) {
+function TopTitle(label, topN, setTopN) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span>{label}</span>
+      <div className="text-xs text-gray-600 hidden md:flex items-center gap-1">
+        <span>Top:</span>
+        {[5,8,12].map(n => (
+          <button key={n} className={`px-2 py-0.5 border rounded ${topN===n? 'bg-gray-100 border-gray-300' : 'border-transparent hover:bg-gray-50'}`} onClick={()=> setTopN(n)}>{n}</button>
+        ))}
+        <button className={`px-2 py-0.5 border rounded ${!topN? 'bg-gray-100 border-gray-300' : 'border-transparent hover:bg-gray-50'}`} onClick={()=> setTopN(0)}>All</button>
+      </div>
+    </div>
+  );
+}
+
+function List({ entries, legend, mode = 'count' }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
+  const total = entries.reduce((s, [,v]) => s + (Number(v)||0), 0) || 1;
   return (
     <ul className="space-y-1 text-sm">
-      {entries.map(([k, v]) => (
-        <li key={k} className="flex justify-between items-center">
-          <span className="capitalize inline-flex items-center gap-2">
-            {legend && <span className="inline-block w-3 h-3 rounded-sm" style={{background: legend[k]}} />}
-            {k}
-          </span>
-          <span className="font-medium">{v}</span>
-        </li>
-      ))}
+      {entries.map(([k, v]) => {
+        const n = Number(v)||0;
+        const pct = Math.round((n/total)*100);
+        const title = `${formatInt(n)} (${pct}%)`;
+        const display = mode==='percent' ? `${pct}%` : formatInt(n);
+        return (
+          <li key={k} className="flex justify-between items-center" title={title}>
+            <span className="capitalize inline-flex items-center gap-2">
+              {legend && <span className="inline-block w-3 h-3 rounded-sm" style={{background: legend[k]}} />}
+              {k}
+            </span>
+            <span className="font-medium">{display}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-function Bars({ entries }) {
+function Bars({ entries, mode = 'count' }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
-  const total = entries.reduce((s, [,v]) => s + v, 0) || 1;
+  const total = entries.reduce((s, [,v]) => s + (Number(v)||0), 0) || 1;
   return (
     <div className="space-y-2">
       {entries.map(([k, v]) => {
-        const pct = Math.round((v/total)*100);
+        const n = Number(v)||0;
+        const pct = Math.round((n/total)*100);
+        const label = mode==='percent' ? `${pct}%` : formatInt(n);
+        const title = `${formatInt(n)} (${pct}%)`;
         return (
-          <div key={k} className="text-sm">
-            <div className="flex justify-between"><span className="capitalize">{k}</span><span>{v} ({pct}%)</span></div>
+          <div key={k} className="text-sm" title={title}>
+            <div className="flex justify-between"><span className="capitalize">{k}</span><span>{label}</span></div>
             <div className="w-full h-2 bg-gray-200 rounded">
               <div className="h-2 bg-blue-500 rounded" style={{ width: `${pct}%` }} />
             </div>
@@ -227,30 +316,19 @@ function KeyVals({ entries }) {
   );
 }
 
-function labelOfDuration(k) {
-  const m = {
-    orderedToDelivery: 'Ordered → Delivered',
-    deliveryToReviewSubmit: 'Delivered → Review Submitted',
-    reviewSubmitToReviewAccepted: 'Review Submitted → Review Accepted',
-    deliveryToRatingSubmitted: 'Delivered → Rating Submitted',
-    reviewSubmitToRefundForm: 'Review Submitted → Refund Form',
-    ratingSubmittedToRefundForm: 'Rating Submitted → Refund Form',
-    refundFormToPayment: 'Refund Form → Payment',
-  };
-  return m[k] || k;
-}
+// Removed stage duration labels (panel removed)
 
-function Pie({ entries }) {
+function Pie({ entries, mode = 'count' }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
   const colors = ['#60a5fa','#34d399','#fbbf24','#f472b6','#a78bfa','#f87171','#10b981','#f59e0b','#22c55e','#ef4444','#06b6d4'];
-  const total = entries.reduce((s, [,v]) => s + v, 0) || 1;
+  const total = entries.reduce((s, [,v]) => s + (Number(v)||0), 0) || 1;
   let acc = 0;
-  const stops = entries.map(([,v],i)=>{ const start=(acc/total)*100; acc+=v; const end=(acc/total)*100; const color=colors[i%colors.length]; return `${color} ${start}% ${end}%`; });
-  const legend = Object.fromEntries(entries.map(([k],i)=>[k, colors[i%colors.length]]));
+  const stops = entries.map(([k,v],i)=>{ const n=Number(v)||0; const start=(acc/total)*100; acc+=n; const end=(acc/total)*100; const color=(k==='Others')? '#9ca3af' : colors[i%colors.length]; return `${color} ${start}% ${end}%`; });
+  const legend = Object.fromEntries(entries.map(([k],i)=>[k, (k==='Others')? '#9ca3af' : colors[i%colors.length]]));
   return (
     <div className="flex items-center gap-4">
-      <div className="w-24 h-24 rounded-full" style={{ background: `conic-gradient(${stops.join(',')})` }} />
-      <List entries={entries} legend={legend} />
+      <div className="w-28 h-28 md:w-32 md:h-32 rounded-full" style={{ background: `conic-gradient(${stops.join(',')})` }} />
+      <List entries={entries} legend={legend} mode={mode} />
     </div>
   );
 }

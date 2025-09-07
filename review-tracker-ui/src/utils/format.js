@@ -2,6 +2,11 @@ export function formatCurrencyINR(val) {
   return `₹${Number(val || 0).toLocaleString('en-IN')}`;
 }
 
+// Format integer counts with Indian locale grouping
+export function formatInt(val) {
+  return Number(val || 0).toLocaleString('en-IN');
+}
+
 // Expects ISO date string (yyyy-MM-dd or ISO). Returns yyyy-MM-dd.
 export function formatDate(val) {
   if (!val) return '';
@@ -15,4 +20,3 @@ export function formatDate(val) {
     return String(val);
   }
 }
-

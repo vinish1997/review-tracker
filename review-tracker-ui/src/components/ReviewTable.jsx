@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { deleteReview, searchReviews, exportCsv as apiExportCsv, importCsv as apiImportCsv, bulkDelete, updateReview, aggregates as apiAggregates, advanceReview, bulkAdvance } from "../api/reviews";
+import { deleteReview, searchReviews, exportCsv as apiExportCsv, importCsv as apiImportCsv, bulkDelete, aggregates as apiAggregates, advanceReview, bulkAdvance } from "../api/reviews";
 import { getPlatforms, getMediators } from "../api/lookups";
 import { listViews, saveView as apiSaveView, deleteView as apiDeleteView, shareView as apiShareView, unshareView as apiUnshareView } from "../api/views";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -69,7 +69,7 @@ export default function ReviewTable() {
   const [viewsOpen, setViewsOpen] = useState(false);
   const viewsRef = useRef(null);
   const [views, setViews] = useState([]);
-  useEffect(() => { (async ()=> { try { const res = await listViews(); setViews(res.data||[]); } catch (e) {} })(); }, []);
+  useEffect(() => { (async ()=> { try { const res = await listViews(); setViews(res.data||[]); } catch { void 0; } })(); }, []);
   useEffect(() => {
     const handler = (e) => { if (viewsRef.current && !viewsRef.current.contains(e.target)) setViewsOpen(false); };
     document.addEventListener('mousedown', handler);
@@ -459,7 +459,7 @@ export default function ReviewTable() {
   // Focus the advance date input when the advance menu opens
   useEffect(() => {
     if (advancingRowId && advanceAnchorRef.current) {
-      try { advanceAnchorRef.current.focus(); } catch {}
+      advanceAnchorRef.current?.focus?.();
     }
   }, [advancingRowId]);
 

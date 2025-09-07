@@ -33,6 +33,12 @@ jobs:
       - name: Build UI
         working-directory: review-tracker-ui
         run: npm run build
+      
+      - name: Inject built UI into backend static
+        run: |
+          rm -rf review-tracker-backend/src/main/resources/static
+          mkdir -p review-tracker-backend/src/main/resources/static
+          cp -r review-tracker-ui/dist/* review-tracker-backend/src/main/resources/static/
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -41,12 +47,11 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      - name: Build backend (skip tests for speed)
-        run: mvn -f review-tracker-backend/pom.xml -B -DskipTests package
+      - name: Build backend (skip test compile and run)
+        run: mvn -f review-tracker-backend/pom.xml -B -Dmaven.test.skip=true package
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: review-tracker-jar
           path: review-tracker-backend/target/review-tracker-backend-*.jar
-

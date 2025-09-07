@@ -24,6 +24,24 @@ export default function Dashboard() {
     });
   }, []);
 
+  // Load persisted dashboard controls
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('dash-scope'); if (s) setScope(s);
+      const f = localStorage.getItem('dash-from'); if (f) setFrom(f);
+      const t = localStorage.getItem('dash-to'); if (t) setTo(t);
+      const cm = localStorage.getItem('dash-count-mode'); if (cm) setCountMode(cm);
+      const tn = localStorage.getItem('dash-top-n'); if (tn) setTopN(Number(tn));
+    } catch { /* noop */ }
+  }, []);
+
+  // Persist controls when changed
+  useEffect(() => { try { localStorage.setItem('dash-scope', scope); } catch { /* noop */ } }, [scope]);
+  useEffect(() => { try { from ? localStorage.setItem('dash-from', from) : localStorage.removeItem('dash-from'); } catch { /* noop */ } }, [from]);
+  useEffect(() => { try { to ? localStorage.setItem('dash-to', to) : localStorage.removeItem('dash-to'); } catch { /* noop */ } }, [to]);
+  useEffect(() => { try { localStorage.setItem('dash-count-mode', countMode); } catch { /* noop */ } }, [countMode]);
+  useEffect(() => { try { localStorage.setItem('dash-top-n', String(topN)); } catch { /* noop */ } }, [topN]);
+
   useEffect(() => {
     const params = {};
     if (scope && scope !== 'all') params.scope = scope;

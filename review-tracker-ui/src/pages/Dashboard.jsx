@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { formatCurrencyINR as formatCurrency, formatInt } from "../utils/format";
 import axios from "axios";
 import { getPlatforms, getMediators } from "../api/lookups";
@@ -41,18 +41,19 @@ export default function Dashboard() {
     .sort((a,b) => b[1]-a[1])
   , [d.mediatorCounts, mediatorMap]);
 
-  const applyTop = (entries) => {
+  const applyTop = useCallback((entries) => {
     if (!Array.isArray(entries)) return [];
     if (!topN || entries.length <= topN) return entries;
     const keep = Math.max(1, topN - 1);
     const head = entries.slice(0, keep);
     const others = entries.slice(keep).reduce((s, [,v]) => s + (Number(v)||0), 0);
     return [...head, ['Others', others]];
-  };
+  }, [topN]);
 
-  const platformEntries = useMemo(() => applyTop(platformEntriesRaw), [platformEntriesRaw, topN]);
-  const dealEntries = useMemo(() => applyTop(dealEntriesRaw), [dealEntriesRaw, topN]);
-  const mediatorEntries = useMemo(() => applyTop(mediatorEntriesRaw), [mediatorEntriesRaw, topN]);
+  const platformEntries = useMemo(() => applyTop(platformEntriesRaw), [platformEntriesRaw, applyTop]);
+  // Deal types are only three – no need for Top-N collapse
+  const dealEntries = useMemo(() => dealEntriesRaw, [dealEntriesRaw]);
+  const mediatorEntries = useMemo(() => applyTop(mediatorEntriesRaw), [mediatorEntriesRaw, applyTop]);
 
   const donutColors = {
     'ordered': '#94a3b8',
@@ -147,7 +148,7 @@ export default function Dashboard() {
             <Panel title={TopTitle('Platforms (Count)', topN, setTopN)}>
               <Pie entries={platformEntries} mode={countMode} />
             </Panel>
-            <Panel title={TopTitle('Deal Types (Count)', topN, setTopN)}>
+            <Panel title={'Deal Types (Count)'}>
               <Pie entries={dealEntries} mode={countMode} />
             </Panel>
             <Panel title={TopTitle('Mediators (Count)', topN, setTopN)}>

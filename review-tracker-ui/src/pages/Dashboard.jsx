@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [mediatorMap, setMediatorMap] = useState({});
   const [platAmts, setPlatAmts] = useState(null);
   const [medAmts, setMedAmts] = useState(null);
+  const [topN, setTopN] = useState(8); // collapse long tails into "Others"
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,18 +27,31 @@ export default function Dashboard() {
   const avg = d?.avgStageDurations || {};
   const aging = d?.agingBuckets || {};
   const statusEntries = Object.entries(d.statusCounts || {});
-  const platformEntries = useMemo(() => Object.entries(d.platformCounts || {})
+  const platformEntriesRaw = useMemo(() => Object.entries(d.platformCounts || {})
     .map(([id,c]) => [platformMap[id] || id, c])
     .sort((a,b) => b[1]-a[1])
   , [d.platformCounts, platformMap]);
-  const dealEntries = useMemo(() => Object.entries(d.dealTypeCounts || {})
+  const dealEntriesRaw = useMemo(() => Object.entries(d.dealTypeCounts || {})
     .map(([code,c]) => [dealTypeLabel(code), c])
     .sort((a,b) => b[1]-a[1])
   , [d.dealTypeCounts]);
-  const mediatorEntries = useMemo(() => Object.entries(d.mediatorCounts || {})
+  const mediatorEntriesRaw = useMemo(() => Object.entries(d.mediatorCounts || {})
     .map(([id,c]) => [mediatorMap[id] || id, c])
     .sort((a,b) => b[1]-a[1])
   , [d.mediatorCounts, mediatorMap]);
+
+  const applyTop = (entries) => {
+    if (!Array.isArray(entries)) return [];
+    if (!topN || entries.length <= topN) return entries;
+    const keep = Math.max(1, topN - 1);
+    const head = entries.slice(0, keep);
+    const others = entries.slice(keep).reduce((s, [,v]) => s + (Number(v)||0), 0);
+    return [...head, ['Others', others]];
+  };
+
+  const platformEntries = useMemo(() => applyTop(platformEntriesRaw), [platformEntriesRaw, topN]);
+  const dealEntries = useMemo(() => applyTop(dealEntriesRaw), [dealEntriesRaw, topN]);
+  const mediatorEntries = useMemo(() => applyTop(mediatorEntriesRaw), [mediatorEntriesRaw, topN]);
 
   const donutColors = {
     'ordered': '#94a3b8',
@@ -121,13 +135,13 @@ export default function Dashboard() {
                 <List entries={statusEntries} legend={donut.legend} />
               </div>
             </Panel>
-            <Panel title="Platforms (Count)">
+            <Panel title={TopTitle('Platforms (Count)', topN, setTopN)}>
               <Pie entries={platformEntries} />
             </Panel>
-            <Panel title="Deal Types (Count)">
+            <Panel title={TopTitle('Deal Types (Count)', topN, setTopN)}>
               <Pie entries={dealEntries} />
             </Panel>
-            <Panel title="Mediators (Count)">
+            <Panel title={TopTitle('Mediators (Count)', topN, setTopN)}>
               <Pie entries={mediatorEntries} />
             </Panel>
             <Panel title="Aging Buckets (Next Step)">
@@ -139,17 +153,17 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Panel title="Amount Received by Platform">
-              <BarCurrency entries={Object.entries((platAmts?.amountReceivedByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
+            <Panel title={TopTitle('Amount Received by Platform', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((platAmts?.amountReceivedByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)]))} />
             </Panel>
-            <Panel title="Amount Pending by Platform">
-              <BarCurrency entries={Object.entries((platAmts?.amountPendingByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
+            <Panel title={TopTitle('Amount Pending by Platform', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((platAmts?.amountPendingByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)]))} />
             </Panel>
-            <Panel title="Amount Received by Mediator">
-              <BarCurrency entries={Object.entries((medAmts?.amountReceivedByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
+            <Panel title={TopTitle('Amount Received by Mediator', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((medAmts?.amountReceivedByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)]))} />
             </Panel>
-            <Panel title="Amount Pending by Mediator">
-              <BarCurrency entries={Object.entries((medAmts?.amountPendingByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
+            <Panel title={TopTitle('Amount Pending by Mediator', topN, setTopN)}>
+              <BarCurrency entries={applyTop(Object.entries((medAmts?.amountPendingByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)]))} />
             </Panel>
           </div>
         </>
@@ -172,6 +186,21 @@ function Panel({ title, children }) {
     <div className="bg-white shadow p-4 rounded">
       <div className="text-lg font-semibold mb-2">{title}</div>
       {children}
+    </div>
+  );
+}
+
+function TopTitle(label, topN, setTopN) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span>{label}</span>
+      <div className="text-xs text-gray-600 hidden md:flex items-center gap-1">
+        <span>Top:</span>
+        {[5,8,12].map(n => (
+          <button key={n} className={`px-2 py-0.5 border rounded ${topN===n? 'bg-gray-100 border-gray-300' : 'border-transparent hover:bg-gray-50'}`} onClick={()=> setTopN(n)}>{n}</button>
+        ))}
+        <button className={`px-2 py-0.5 border rounded ${!topN? 'bg-gray-100 border-gray-300' : 'border-transparent hover:bg-gray-50'}`} onClick={()=> setTopN(0)}>All</button>
+      </div>
     </div>
   );
 }

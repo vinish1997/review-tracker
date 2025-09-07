@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [platAmts, setPlatAmts] = useState(null);
   const [medAmts, setMedAmts] = useState(null);
   const [topN, setTopN] = useState(8); // collapse long tails into "Others"
+  const [countMode, setCountMode] = useState('count'); // 'count' | 'percent'
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,6 +82,14 @@ export default function Dashboard() {
         <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
         <p className="text-gray-600">A quick overview of your review operations</p>
       </div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="text-xs text-gray-600 inline-flex items-center gap-1">
+          <span>Counts:</span>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='count'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('count')}>Count</button>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='percent'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('percent')}>%</button>
+        </div>
+      </div>
       {(!data) ? (
         <div className="space-y-4 animate-pulse">
           <div className="grid grid-cols-7 gap-4">
@@ -132,20 +141,20 @@ export default function Dashboard() {
             <Panel title="By Status">
               <div className="flex items-center gap-4">
                 <div className="w-28 h-28 md:w-32 md:h-32 rounded-full" style={donut.style} />
-                <List entries={statusEntries} legend={donut.legend} />
+                <List entries={statusEntries} legend={donut.legend} mode={countMode} />
               </div>
             </Panel>
             <Panel title={TopTitle('Platforms (Count)', topN, setTopN)}>
-              <Pie entries={platformEntries} />
+              <Pie entries={platformEntries} mode={countMode} />
             </Panel>
             <Panel title={TopTitle('Deal Types (Count)', topN, setTopN)}>
-              <Pie entries={dealEntries} />
+              <Pie entries={dealEntries} mode={countMode} />
             </Panel>
             <Panel title={TopTitle('Mediators (Count)', topN, setTopN)}>
-              <Pie entries={mediatorEntries} />
+              <Pie entries={mediatorEntries} mode={countMode} />
             </Panel>
             <Panel title="Aging Buckets (Next Step)">
-              <Bars entries={Object.entries(aging)} />
+              <Bars entries={Object.entries(aging)} mode={countMode} />
             </Panel>
             <Panel title="Stage Durations (Avg Days)">
               <KeyVals entries={Object.entries(avg).map(([k,v])=>[labelOfDuration(k), Number.isFinite(v)? Math.round(v) : 0])} />
@@ -205,33 +214,43 @@ function TopTitle(label, topN, setTopN) {
   );
 }
 
-function List({ entries, legend }) {
+function List({ entries, legend, mode = 'count' }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
+  const total = entries.reduce((s, [,v]) => s + (Number(v)||0), 0) || 1;
   return (
     <ul className="space-y-1 text-sm">
-      {entries.map(([k, v]) => (
-        <li key={k} className="flex justify-between items-center">
-          <span className="capitalize inline-flex items-center gap-2">
-            {legend && <span className="inline-block w-3 h-3 rounded-sm" style={{background: legend[k]}} />}
-            {k}
-          </span>
-          <span className="font-medium" title={String(v)}>{formatInt(v)}</span>
-        </li>
-      ))}
+      {entries.map(([k, v]) => {
+        const n = Number(v)||0;
+        const pct = Math.round((n/total)*100);
+        const title = `${formatInt(n)} (${pct}%)`;
+        const display = mode==='percent' ? `${pct}%` : formatInt(n);
+        return (
+          <li key={k} className="flex justify-between items-center" title={title}>
+            <span className="capitalize inline-flex items-center gap-2">
+              {legend && <span className="inline-block w-3 h-3 rounded-sm" style={{background: legend[k]}} />}
+              {k}
+            </span>
+            <span className="font-medium">{display}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-function Bars({ entries }) {
+function Bars({ entries, mode = 'count' }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
-  const total = entries.reduce((s, [,v]) => s + v, 0) || 1;
+  const total = entries.reduce((s, [,v]) => s + (Number(v)||0), 0) || 1;
   return (
     <div className="space-y-2">
       {entries.map(([k, v]) => {
-        const pct = Math.round((v/total)*100);
+        const n = Number(v)||0;
+        const pct = Math.round((n/total)*100);
+        const label = mode==='percent' ? `${pct}%` : formatInt(n);
+        const title = `${formatInt(n)} (${pct}%)`;
         return (
-          <div key={k} className="text-sm">
-            <div className="flex justify-between"><span className="capitalize">{k}</span><span title={String(v)}>{formatInt(v)} ({pct}%)</span></div>
+          <div key={k} className="text-sm" title={title}>
+            <div className="flex justify-between"><span className="capitalize">{k}</span><span>{label}</span></div>
             <div className="w-full h-2 bg-gray-200 rounded">
               <div className="h-2 bg-blue-500 rounded" style={{ width: `${pct}%` }} />
             </div>
@@ -269,17 +288,17 @@ function labelOfDuration(k) {
   return m[k] || k;
 }
 
-function Pie({ entries }) {
+function Pie({ entries, mode = 'count' }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;
   const colors = ['#60a5fa','#34d399','#fbbf24','#f472b6','#a78bfa','#f87171','#10b981','#f59e0b','#22c55e','#ef4444','#06b6d4'];
-  const total = entries.reduce((s, [,v]) => s + v, 0) || 1;
+  const total = entries.reduce((s, [,v]) => s + (Number(v)||0), 0) || 1;
   let acc = 0;
-  const stops = entries.map(([,v],i)=>{ const start=(acc/total)*100; acc+=v; const end=(acc/total)*100; const color=colors[i%colors.length]; return `${color} ${start}% ${end}%`; });
-  const legend = Object.fromEntries(entries.map(([k],i)=>[k, colors[i%colors.length]]));
+  const stops = entries.map(([k,v],i)=>{ const n=Number(v)||0; const start=(acc/total)*100; acc+=n; const end=(acc/total)*100; const color=(k==='Others')? '#9ca3af' : colors[i%colors.length]; return `${color} ${start}% ${end}%`; });
+  const legend = Object.fromEntries(entries.map(([k],i)=>[k, (k==='Others')? '#9ca3af' : colors[i%colors.length]]));
   return (
     <div className="flex items-center gap-4">
       <div className="w-28 h-28 md:w-32 md:h-32 rounded-full" style={{ background: `conic-gradient(${stops.join(',')})` }} />
-      <List entries={entries} legend={legend} />
+      <List entries={entries} legend={legend} mode={mode} />
     </div>
   );
 }

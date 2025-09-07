@@ -18,8 +18,6 @@ export default function Dashboard() {
   const [to, setTo] = useState('');
 
   useEffect(() => {
-    axios.get("/api/reviews/stats/amounts/platform").then(res => setPlatAmts(res.data)).catch(()=>{});
-    axios.get("/api/reviews/stats/amounts/mediator").then(res => setMedAmts(res.data)).catch(()=>{});
     Promise.all([getPlatforms(), getMediators()]).then(([p, m]) => {
       setPlatformMap(Object.fromEntries((p.data||[]).map(x=>[x.id, x.name])));
       setMediatorMap(Object.fromEntries((m.data||[]).map(x=>[x.id, x.name])));
@@ -32,6 +30,8 @@ export default function Dashboard() {
     if (from) params.from = from;
     if (to) params.to = to;
     axios.get("/api/reviews/dashboard", { params }).then(res => setData(res.data));
+    axios.get("/api/reviews/stats/amounts/platform", { params }).then(res => setPlatAmts(res.data)).catch(()=>{});
+    axios.get("/api/reviews/stats/amounts/mediator", { params }).then(res => setMedAmts(res.data)).catch(()=>{});
   }, [scope, from, to]);
 
   const d = data || { statusCounts: {}, platformCounts: {}, dealTypeCounts: {}, mediatorCounts: {} };

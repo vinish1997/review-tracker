@@ -124,6 +124,11 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
     @Override
     public java.util.Map<String, Object> aggregatedDashboard() {
+        return aggregatedDashboard(null, null, null);
+    }
+
+    @Override
+    public java.util.Map<String, Object> aggregatedDashboard(String scope, java.time.LocalDate from, java.time.LocalDate to) {
         List<AggregationOperation> ops = new ArrayList<>();
 
         // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
@@ -187,6 +192,13 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -7); java.util.Date nowMinus7 = cal.getTime();
         cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -14); java.util.Date nowMinus14 = cal.getTime();
         cal.setTime(now); cal.add(java.util.Calendar.DAY_OF_MONTH, -30); java.util.Date nowMinus30 = cal.getTime();
+
+        // Optional scope/date filters prior to facet
+        // Scope: 'received' => paymentReceivedDate != null; 'pending' => completed != true; else all
+        if ("received".equalsIgnoreCase(scope)) {
+            // Match only received payments
+            ops.add(context -> new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))));
+        }
 
         // facet
         org.bson.Document facet = new org.bson.Document();
@@ -324,6 +336,20 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
         ops.add(context -> new org.bson.Document("$facet", facet));
 
+        // Apply date range: if provided and scope==received, use paymentReceivedDate; else use createdAt
+        if (from != null || to != null) {
+            java.util.Date fromD = null, toD = null;
+            if (from != null) fromD = java.util.Date.from(from.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+            if (to != null) toD = java.util.Date.from(to.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+            org.bson.Document cond = new org.bson.Document();
+            String field = ("received".equalsIgnoreCase(scope)) ? "paymentReceivedDate" : "createdAt";
+            org.bson.Document range = new org.bson.Document();
+            if (fromD != null) range.append("$gte", fromD);
+            if (toD != null) range.append("$lt", toD);
+            cond.append(field, range);
+            ops.add(context -> new org.bson.Document("$match", cond));
+        }
+
         Aggregation agg = Aggregation.newAggregation(ops);
         org.bson.Document root = mongoTemplate.aggregate(agg, Review.class, org.bson.Document.class)
                 .getUniqueMappedResult();
@@ -420,15 +446,25 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
 
     @Override
     public java.util.Map<String, Object> amountByPlatform() {
-        return amountByField("platformId");
+        return amountByField("platformId", null, null, null);
     }
 
     @Override
     public java.util.Map<String, Object> amountByMediator() {
-        return amountByField("mediatorId");
+        return amountByField("mediatorId", null, null, null);
     }
 
-    private java.util.Map<String, Object> amountByField(String field) {
+    @Override
+    public java.util.Map<String, Object> amountByPlatform(String scope, java.time.LocalDate from, java.time.LocalDate to) {
+        return amountByField("platformId", scope, from, to);
+    }
+
+    @Override
+    public java.util.Map<String, Object> amountByMediator(String scope, java.time.LocalDate from, java.time.LocalDate to) {
+        return amountByField("mediatorId", scope, from, to);
+    }
+
+    private java.util.Map<String, Object> amountByField(String field, String scope, java.time.LocalDate from, java.time.LocalDate to) {
         java.util.List<AggregationOperation> ops = new java.util.ArrayList<>();
         // computedRefund = refundAmountRupees ?? ((amountRupees && lessRupees) ? amountRupees-lessRupees : 0)
         org.bson.Document amountAndLessPresent2 = new org.bson.Document("$and", java.util.Arrays.asList(
@@ -447,17 +483,41 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         );
         ops.add(context -> new org.bson.Document("$addFields", new org.bson.Document("computedRefund", computedRefundExpr)));
 
+        java.util.Date fromD = null, toD = null;
+        if (from != null) fromD = java.util.Date.from(from.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+        if (to != null) toD = java.util.Date.from(to.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+
         org.bson.Document facet = new org.bson.Document();
-        facet.append("received", java.util.List.of(
-                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null))),
-                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
-                        .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
-        ));
-        facet.append("pending", java.util.List.of(
-                new org.bson.Document("$match", new org.bson.Document("paymentReceivedDate", null)),
-                new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
-                        .append("amt", new org.bson.Document("$sum", "$computedRefund")))
-        ));
+        // Received facet with optional date window on paymentReceivedDate
+        {
+            org.bson.Document match = new org.bson.Document("paymentReceivedDate", new org.bson.Document("$ne", null));
+            if (fromD != null || toD != null) {
+                org.bson.Document range = new org.bson.Document();
+                if (fromD != null) range.append("$gte", fromD);
+                if (toD != null) range.append("$lt", toD);
+                match.append("paymentReceivedDate", new org.bson.Document("$ne", null).append("$gte", range.get("$gte")).append("$lt", range.get("$lt")));
+            }
+            facet.append("received", java.util.List.of(
+                    new org.bson.Document("$match", match),
+                    new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
+                            .append("amt", new org.bson.Document("$sum", new org.bson.Document("$ifNull", java.util.List.of("$refundAmountRupees", "$computedRefund")))))
+            ));
+        }
+        // Pending facet with optional date window on createdAt
+        {
+            org.bson.Document match = new org.bson.Document("paymentReceivedDate", null);
+            if (fromD != null || toD != null) {
+                org.bson.Document range = new org.bson.Document();
+                if (fromD != null) range.append("$gte", fromD);
+                if (toD != null) range.append("$lt", toD);
+                match.append("createdAt", range);
+            }
+            facet.append("pending", java.util.List.of(
+                    new org.bson.Document("$match", match),
+                    new org.bson.Document("$group", new org.bson.Document("_id", new org.bson.Document("$ifNull", java.util.List.of("$" + field, "unknown")))
+                            .append("amt", new org.bson.Document("$sum", "$computedRefund")))
+            ));
+        }
 
         ops.add(context -> new org.bson.Document("$facet", facet));
         Aggregation agg = Aggregation.newAggregation(ops);

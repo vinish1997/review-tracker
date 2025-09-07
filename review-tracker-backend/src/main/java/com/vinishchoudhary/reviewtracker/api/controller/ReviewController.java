@@ -237,20 +237,42 @@ public class ReviewController {
 
     // ---------- Dashboard ----------
     @GetMapping("/dashboard")
-    public ResponseEntity<Map<String, Object>> dashboard() {
-        return ResponseEntity.ok(reviewService.dashboard());
+    public ResponseEntity<Map<String, Object>> dashboard(
+            @RequestParam(required = false) String scope,
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) java.time.LocalDate from,
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) java.time.LocalDate to
+    ) {
+        return ResponseEntity.ok(reviewService.dashboard(scope, from, to));
     }
 
     // ---------- Stats (decoupled) ----------
     @GetMapping("/stats/amounts/platform")
-    public ResponseEntity<Map<String, Object>> amountsByPlatform() {
-        var res = reviewService.amountsByPlatform();
+    public ResponseEntity<Map<String, Object>> amountsByPlatform(
+            @RequestParam(required = false) String scope,
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) java.time.LocalDate from,
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) java.time.LocalDate to
+    ) {
+        var res = (scope==null && from==null && to==null)
+                ? reviewService.amountsByPlatform()
+                : reviewService.amountsByPlatform(scope, from, to);
         return ResponseEntity.ok(res);
     }
 
     @GetMapping("/stats/amounts/mediator")
-    public ResponseEntity<Map<String, Object>> amountsByMediator() {
-        var res = reviewService.amountsByMediator();
+    public ResponseEntity<Map<String, Object>> amountsByMediator(
+            @RequestParam(required = false) String scope,
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) java.time.LocalDate from,
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) java.time.LocalDate to
+    ) {
+        var res = (scope==null && from==null && to==null)
+                ? reviewService.amountsByMediator()
+                : reviewService.amountsByMediator(scope, from, to);
         return ResponseEntity.ok(res);
     }
 }

@@ -53,8 +53,6 @@ export default function Dashboard() {
   }, [scope, from, to]);
 
   const d = data || { statusCounts: {}, platformCounts: {}, dealTypeCounts: {}, mediatorCounts: {} };
-  const avg = d?.avgStageDurations || {};
-  const aging = d?.agingBuckets || {};
   const statusEntries = Object.entries(d.statusCounts || {});
   const platformEntriesRaw = useMemo(() => Object.entries(d.platformCounts || {})
     .map(([id,c]) => [platformMap[id] || id, c])
@@ -177,7 +175,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-4">
             <Card title="Total Reviews" value={formatInt(data.totalReviews)} onClick={()=> navigate('/reviews')} clickable />
             <Card title="Payment Received" value={formatCurrency(data.totalPaymentReceived)} onClick={()=> navigate('/archive')} clickable />
-            <Card title="Avg Refund" value={formatCurrency(data.averageRefund)} />
+            {/* Avg Refund removed */}
             <Card title="Pending Review/Rating" value={formatInt(Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0))} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
             <Card title="Pending Refund Form" value={formatInt(Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
             <Card title="Pending Payment" value={formatInt(Number(data.statusCounts?.["refund form submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
@@ -201,12 +199,7 @@ export default function Dashboard() {
             <Panel title={TopTitle('Mediators (Count)', topN, setTopN)}>
               <Pie entries={mediatorEntries} mode={countMode} />
             </Panel>
-            <Panel title="Aging Buckets (Next Step)">
-              <Bars entries={Object.entries(aging)} mode={countMode} />
-            </Panel>
-            <Panel title="Stage Durations (Avg Days)">
-              <KeyVals entries={Object.entries(avg).map(([k,v])=>[labelOfDuration(k), Number.isFinite(v)? Math.round(v) : 0])} />
-            </Panel>
+            {/* Aging and Stage Durations panels removed */}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -323,18 +316,7 @@ function KeyVals({ entries }) {
   );
 }
 
-function labelOfDuration(k) {
-  const m = {
-    orderedToDelivery: 'Ordered → Delivered',
-    deliveryToReviewSubmit: 'Delivered → Review Submitted',
-    reviewSubmitToReviewAccepted: 'Review Submitted → Review Accepted',
-    deliveryToRatingSubmitted: 'Delivered → Rating Submitted',
-    reviewSubmitToRefundForm: 'Review Submitted → Refund Form',
-    ratingSubmittedToRefundForm: 'Rating Submitted → Refund Form',
-    refundFormToPayment: 'Refund Form → Payment',
-  };
-  return m[k] || k;
-}
+// Removed stage duration labels (panel removed)
 
 function Pie({ entries, mode = 'count' }) {
   if (!entries.length) return <div className="text-sm text-gray-500">No data</div>;

@@ -110,7 +110,7 @@ export default function Dashboard() {
             <Card title="Pending Review/Rating" value={Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
             <Card title="Pending Refund Form" value={Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
             <Card title="Pending Payment" value={Number(data.statusCounts?.["refund form submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
-            <Card title="Payment Pending Amt" value={`₹${data.paymentPendingAmount || 0}`} />
+            <Card title="Payment Pending Amt" value={formatCurrency(data.paymentPendingAmount)} />
             <Card title=">7d Since Delivery" value={data.overdueSinceDeliveryCount || 0} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
           </div>
 

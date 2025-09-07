@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { formatCurrencyINR as formatCurrency } from "../utils/format";
+import { formatCurrencyINR as formatCurrency, formatInt } from "../utils/format";
 import axios from "axios";
 import { getPlatforms, getMediators } from "../api/lookups";
 import { useNavigate } from "react-router-dom";
@@ -103,21 +103,21 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-8 gap-4">
-            <Card title="Total Reviews" value={data.totalReviews} onClick={()=> navigate('/reviews')} clickable />
-        <Card title="Payment Received" value={formatCurrency(data.totalPaymentReceived)} onClick={()=> navigate('/archive')} clickable />
-        <Card title="Avg Refund" value={formatCurrency(data.averageRefund)} />
-            <Card title="Pending Review/Rating" value={Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
-            <Card title="Pending Refund Form" value={Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
-            <Card title="Pending Payment" value={Number(data.statusCounts?.["refund form submitted"]||0)} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-4">
+            <Card title="Total Reviews" value={formatInt(data.totalReviews)} onClick={()=> navigate('/reviews')} clickable />
+            <Card title="Payment Received" value={formatCurrency(data.totalPaymentReceived)} onClick={()=> navigate('/archive')} clickable />
+            <Card title="Avg Refund" value={formatCurrency(data.averageRefund)} />
+            <Card title="Pending Review/Rating" value={formatInt(Number(data.statusCounts?.["ordered"]||0)+Number(data.statusCounts?.["delivered"]||0))} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
+            <Card title="Pending Refund Form" value={formatInt(Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
+            <Card title="Pending Payment" value={formatInt(Number(data.statusCounts?.["refund form submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
             <Card title="Payment Pending Amt" value={formatCurrency(data.paymentPendingAmount)} />
-            <Card title=">7d Since Delivery" value={data.overdueSinceDeliveryCount || 0} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
+            <Card title=">7d Since Delivery" value={formatInt(data.overdueSinceDeliveryCount || 0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Panel title="By Status">
               <div className="flex items-center gap-4">
-                <div className="w-24 h-24 rounded-full" style={donut.style} />
+                <div className="w-28 h-28 md:w-32 md:h-32 rounded-full" style={donut.style} />
                 <List entries={statusEntries} legend={donut.legend} />
               </div>
             </Panel>
@@ -138,19 +138,19 @@ export default function Dashboard() {
             </Panel>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-        <Panel title="Amount Received by Platform">
-          <BarCurrency entries={Object.entries((platAmts?.amountReceivedByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
-        </Panel>
-        <Panel title="Amount Pending by Platform">
-          <BarCurrency entries={Object.entries((platAmts?.amountPendingByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
-        </Panel>
-        <Panel title="Amount Received by Mediator">
-          <BarCurrency entries={Object.entries((medAmts?.amountReceivedByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
-        </Panel>
-        <Panel title="Amount Pending by Mediator">
-          <BarCurrency entries={Object.entries((medAmts?.amountPendingByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
-        </Panel>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Panel title="Amount Received by Platform">
+              <BarCurrency entries={Object.entries((platAmts?.amountReceivedByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
+            </Panel>
+            <Panel title="Amount Pending by Platform">
+              <BarCurrency entries={Object.entries((platAmts?.amountPendingByPlatform)||{}).map(([id,amt])=>[platformMap[id]||id, Number(amt)])} />
+            </Panel>
+            <Panel title="Amount Received by Mediator">
+              <BarCurrency entries={Object.entries((medAmts?.amountReceivedByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
+            </Panel>
+            <Panel title="Amount Pending by Mediator">
+              <BarCurrency entries={Object.entries((medAmts?.amountPendingByMediator)||{}).map(([id,amt])=>[mediatorMap[id]||id, Number(amt)])} />
+            </Panel>
           </div>
         </>
       )}
@@ -186,7 +186,7 @@ function List({ entries, legend }) {
             {legend && <span className="inline-block w-3 h-3 rounded-sm" style={{background: legend[k]}} />}
             {k}
           </span>
-          <span className="font-medium">{v}</span>
+          <span className="font-medium" title={String(v)}>{formatInt(v)}</span>
         </li>
       ))}
     </ul>
@@ -202,7 +202,7 @@ function Bars({ entries }) {
         const pct = Math.round((v/total)*100);
         return (
           <div key={k} className="text-sm">
-            <div className="flex justify-between"><span className="capitalize">{k}</span><span>{v} ({pct}%)</span></div>
+            <div className="flex justify-between"><span className="capitalize">{k}</span><span title={String(v)}>{formatInt(v)} ({pct}%)</span></div>
             <div className="w-full h-2 bg-gray-200 rounded">
               <div className="h-2 bg-blue-500 rounded" style={{ width: `${pct}%` }} />
             </div>
@@ -249,7 +249,7 @@ function Pie({ entries }) {
   const legend = Object.fromEntries(entries.map(([k],i)=>[k, colors[i%colors.length]]));
   return (
     <div className="flex items-center gap-4">
-      <div className="w-24 h-24 rounded-full" style={{ background: `conic-gradient(${stops.join(',')})` }} />
+      <div className="w-28 h-28 md:w-32 md:h-32 rounded-full" style={{ background: `conic-gradient(${stops.join(',')})` }} />
       <List entries={entries} legend={legend} />
     </div>
   );

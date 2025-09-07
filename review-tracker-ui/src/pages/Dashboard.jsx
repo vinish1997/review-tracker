@@ -13,9 +13,11 @@ export default function Dashboard() {
   const [topN, setTopN] = useState(8); // collapse long tails into "Others"
   const [countMode, setCountMode] = useState('count'); // 'count' | 'percent'
   const navigate = useNavigate();
+  const [scope, setScope] = useState('all'); // 'all' | 'received' | 'pending'
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
   useEffect(() => {
-    axios.get("/api/reviews/dashboard").then(res => setData(res.data));
     axios.get("/api/reviews/stats/amounts/platform").then(res => setPlatAmts(res.data)).catch(()=>{});
     axios.get("/api/reviews/stats/amounts/mediator").then(res => setMedAmts(res.data)).catch(()=>{});
     Promise.all([getPlatforms(), getMediators()]).then(([p, m]) => {
@@ -23,6 +25,14 @@ export default function Dashboard() {
       setMediatorMap(Object.fromEntries((m.data||[]).map(x=>[x.id, x.name])));
     });
   }, []);
+
+  useEffect(() => {
+    const params = {};
+    if (scope && scope !== 'all') params.scope = scope;
+    if (from) params.from = from;
+    if (to) params.to = to;
+    axios.get("/api/reviews/dashboard", { params }).then(res => setData(res.data));
+  }, [scope, from, to]);
 
   const d = data || { statusCounts: {}, platformCounts: {}, dealTypeCounts: {}, mediatorCounts: {} };
   const avg = d?.avgStageDurations || {};
@@ -82,6 +92,25 @@ export default function Dashboard() {
       <div className="-m-6 p-6 rounded-b-xl bg-gradient-to-r from-indigo-50 via-white to-emerald-50">
         <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
         <p className="text-gray-600">A quick overview of your review operations</p>
+      </div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs text-gray-600 inline-flex items-center gap-2">
+          <span>Scope:</span>
+          {['all','received','pending'].map(s => (
+            <button key={s} className={`px-2 py-0.5 border rounded capitalize ${scope===s?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setScope(s)}>{s}</button>
+          ))}
+          <span className="ml-2">From</span>
+          <input type="date" className="border rounded px-2 py-0.5" value={from} onChange={e=> setFrom(e.target.value)} />
+          <span>To</span>
+          <input type="date" className="border rounded px-2 py-0.5" value={to} onChange={e=> setTo(e.target.value)} />
+          <button className="px-2 py-0.5 border rounded hover:bg-gray-50" onClick={()=> { setFrom(''); setTo(''); }}>Clear</button>
+        </div>
+        <div className="text-xs text-gray-600 inline-flex items-center gap-1">
+          <span>Counts:</span>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='count'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('count')}>Count</button>
+          <button className={`px-2 py-0.5 border rounded ${countMode==='percent'?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setCountMode('percent')}>%</button>
+        </div>
       </div>
       {/* Controls */}
       <div className="flex flex-wrap items-center justify-end gap-3">

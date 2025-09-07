@@ -241,7 +241,7 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
                         .append("totalReceived", new org.bson.Document("$sum",
                                 new org.bson.Document("$cond", java.util.Arrays.asList(
                                         new org.bson.Document("$ne", java.util.Arrays.asList("$paymentReceivedDate", null)),
-                                        new org.bson.Document("$ifNull", java.util.Arrays.asList("$refundAmountRupees", "$computedRefund")),
+                                        "$computedRefund",
                                         0
                                 ))))
                         .append("countReceived", new org.bson.Document("$sum",

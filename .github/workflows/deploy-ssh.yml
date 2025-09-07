@@ -1,0 +1,59 @@
+name: Deploy via SSH (Pull GHCR image)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g., latest or sha)"
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/review-tracker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect and deploy on remote host
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            echo "Logging in to GHCR"
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+            IMAGE=${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}
+            echo "Pulling $IMAGE"
+            docker pull "$IMAGE"
+            mkdir -p ~/apps/review-tracker
+            cd ~/apps/review-tracker
+            # Write/update .env for compose
+            cat > .env << EOF
+            SPRING_DATA_MONGODB_URI=${{ secrets.SPRING_DATA_MONGODB_URI }}
+            SERVER_PORT=${{ secrets.SERVER_PORT || 8080 }}
+            JAVA_OPTS=${{ secrets.JAVA_OPTS }}
+            EOF
+            # Write a minimal compose file if not present
+            if [ ! -f docker-compose.yml ]; then
+              cat > docker-compose.yml << YML
+            version: '3.8'
+            services:
+              app:
+                image: ${IMAGE}
+                ports:
+                  - "
+            ${SERVER_PORT:-8080}:8080"
+                env_file: .env
+                restart: unless-stopped
+            YML
+            fi
+            docker compose down || true
+            docker compose up -d
+

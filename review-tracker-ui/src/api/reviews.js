@@ -9,7 +9,18 @@ export const getReview = (id) => axios.get(`${API_BASE}/${id}`);
 export const createReview = (review) => axios.post(API_BASE, review);
 export const updateReview = (id, review) => axios.put(`${API_BASE}/${id}`, review);
 export const deleteReview = (id) => axios.delete(`${API_BASE}/${id}`);
-export const searchReviews = (criteria, params = {}) => axios.post(`${API_BASE}/search`, criteria, { params });
+const toQuery = (criteria = {}) => {
+  const q = { ...criteria };
+  // Serialize arrays as comma-separated to avoid bracket syntax; backend splits on commas
+  if (Array.isArray(q.platformIdIn)) q.platformIdIn = q.platformIdIn.join(',');
+  if (Array.isArray(q.mediatorIdIn)) q.mediatorIdIn = q.mediatorIdIn.join(',');
+  if (Array.isArray(q.statusIn)) q.statusIn = q.statusIn.join(',');
+  if (Array.isArray(q.dealTypeIn)) q.dealTypeIn = q.dealTypeIn.join(',');
+  return q;
+};
+
+export const searchReviews = (criteria, params = {}) =>
+  axios.get(`${API_BASE}/search`, { params: { ...toQuery(criteria), ...params } });
 export const exportCsv = () => axios.get(`${API_BASE}/export`, { responseType: 'blob' });
 export const importCsv = (file) => {
   const fd = new FormData();
@@ -17,7 +28,7 @@ export const importCsv = (file) => {
   return axios.post(`${API_BASE}/import`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
 export const bulkDelete = (ids) => axios.post(`${API_BASE}/bulk-delete`, ids);
-export const aggregates = (criteria) => axios.post(`${API_BASE}/aggregates`, criteria);
+export const aggregates = (criteria) => axios.get(`${API_BASE}/aggregates`, { params: toQuery(criteria) });
 
 // Advance next step endpoints
 export const advanceReview = (id, date) => axios.post(`${API_BASE}/${id}/advance`, { date });

@@ -80,9 +80,87 @@ public class ReviewController {
         return resp;
     }
 
+    // GET alternative for environments that block POSTs
+    @GetMapping("/search")
+    public PageResponse<Review> searchGet(
+            @RequestParam(required = false) String productNameContains,
+            @RequestParam(required = false) String orderIdContains,
+            @RequestParam(required = false) List<String> platformIdIn,
+            @RequestParam(required = false) List<String> mediatorIdIn,
+            @RequestParam(required = false) List<String> statusIn,
+            @RequestParam(required = false) List<String> dealTypeIn,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "createdAt") String sort,
+            @RequestParam(required = false, defaultValue = "DESC") String dir
+    ) {
+        ReviewSearchCriteria criteria = ReviewSearchCriteria.builder()
+                .productNameContains(emptyToNull(productNameContains))
+                .orderIdContains(emptyToNull(orderIdContains))
+                .platformIdIn(normalizeList(platformIdIn))
+                .mediatorIdIn(normalizeList(mediatorIdIn))
+                .statusIn(normalizeList(statusIn))
+                .dealTypeIn(normalizeList(dealTypeIn))
+                .build();
+        Sort.Direction direction = "ASC".equalsIgnoreCase(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Page<Review> result = reviewService.searchReviews(criteria, PageRequest.of(page, size, Sort.by(direction, sort)));
+        return new PageResponse<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                sort,
+                dir
+        );
+    }
+
     @PostMapping("/aggregates")
     public ResponseEntity<Map<String, Object>> aggregates(@RequestBody ReviewSearchCriteria criteria) {
         return ResponseEntity.ok(reviewService.aggregates(criteria));
+    }
+
+    // GET alternative for aggregates
+    @GetMapping("/aggregates")
+    public ResponseEntity<Map<String, Object>> aggregatesGet(
+            @RequestParam(required = false) String productNameContains,
+            @RequestParam(required = false) String orderIdContains,
+            @RequestParam(required = false) List<String> platformIdIn,
+            @RequestParam(required = false) List<String> mediatorIdIn,
+            @RequestParam(required = false) List<String> statusIn,
+            @RequestParam(required = false) List<String> dealTypeIn
+    ) {
+        ReviewSearchCriteria criteria = ReviewSearchCriteria.builder()
+                .productNameContains(emptyToNull(productNameContains))
+                .orderIdContains(emptyToNull(orderIdContains))
+                .platformIdIn(normalizeList(platformIdIn))
+                .mediatorIdIn(normalizeList(mediatorIdIn))
+                .statusIn(normalizeList(statusIn))
+                .dealTypeIn(normalizeList(dealTypeIn))
+                .build();
+        return ResponseEntity.ok(reviewService.aggregates(criteria));
+    }
+
+    private static String emptyToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
+    }
+    private static List<String> normalizeList(List<String> in) {
+        if (in == null) return null;
+        // Accept both repeated query params and single comma-separated strings
+        List<String> out = new ArrayList<>();
+        for (String v : in) {
+            if (v == null) continue;
+            if (v.contains(",")) {
+                for (String p : v.split(",")) {
+                    String t = p.trim();
+                    if (!t.isEmpty()) out.add(t);
+                }
+            } else {
+                String t = v.trim();
+                if (!t.isEmpty()) out.add(t);
+            }
+        }
+        return out.isEmpty() ? null : out;
     }
 
     // ---------- Clone / Copy ----------

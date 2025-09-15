@@ -92,7 +92,7 @@ export default function Lookups() {
       </div>
 
       {/* Body Card */}
-      <div className="bg-white p-4 rounded-b-xl shadow">
+      <div className="bg-white p-4 rounded-b-xl shadow text-gray-900">
       {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b">
         {[

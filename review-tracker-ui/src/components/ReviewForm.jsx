@@ -266,7 +266,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Deal Type</label>
-          <select {...register("dealType", { required: "Deal type is required" })} className={`w-full rounded-md border ${errors.dealType ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}>
+          <select {...register("dealType", { required: "Deal type is required" })} className={`w-full rounded-md border ${errors.dealType ? 'border-red-500' : 'border-gray-300'} bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}>
             <option value="">Select</option>
             <option value="REVIEW_PUBLISHED">Review Published</option>
             <option value="REVIEW_SUBMISSION">Review Submission</option>
@@ -391,7 +391,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
                 <label className="block text-sm font-medium text-gray-700 inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-4 h-4 text-gray-400" title={tipOf(step)} /></label>
                 <Controller name={step} control={control} render={({ field }) => (
                   <DatePicker
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     selected={field.value}
                     disabled={!dealType}
                     onChange={(d)=> {
@@ -514,7 +514,7 @@ function MediatorSelect({ value, onChange, items, error }) {
       {open && (
         <div className="absolute z-20 mt-1 w-full bg-white border rounded shadow-lg" onKeyDown={onKeyDown}>
           <div className="p-2 border-b bg-gray-50">
-            <input className="w-full border rounded px-2 py-1 text-sm" placeholder="Search name or phone" value={query} onChange={(e)=> setQuery(e.target.value)} />
+            <input className="w-full border rounded px-2 py-1 text-sm bg-white text-gray-900" placeholder="Search name or phone" value={query} onChange={(e)=> setQuery(e.target.value)} />
           </div>
           <div ref={listRef} className="max-h-48 overflow-auto text-sm">
             {filtered.map((m, idx) => (
@@ -599,7 +599,7 @@ function PlatformSelect({ value, onChange, items, error }) {
       {open && (
         <div className="absolute z-20 mt-1 w-full bg-white border rounded shadow-lg" onKeyDown={onKeyDown}>
           <div className="p-2 border-b bg-gray-50">
-            <input className="w-full border rounded px-2 py-1 text-sm" placeholder="Search platform" value={query} onChange={(e)=> setQuery(e.target.value)} />
+            <input className="w-full border rounded px-2 py-1 text-sm bg-white text-gray-900" placeholder="Search platform" value={query} onChange={(e)=> setQuery(e.target.value)} />
           </div>
           <div ref={listRef} className="max-h-48 overflow-auto text-sm">
             {filtered.map((p, idx) => (

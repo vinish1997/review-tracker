@@ -103,9 +103,9 @@ export default function Dashboard() {
   })();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900">
       {/* Hero Section */}
-      <div className="-m-6 p-6 rounded-b-xl bg-gradient-to-r from-indigo-50 via-white to-emerald-50">
+      <div className="p-6 rounded-b-xl bg-white border-b">
         <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
         <p className="text-gray-600">A quick overview of your review operations</p>
       </div>
@@ -180,7 +180,7 @@ export default function Dashboard() {
             <Card title="Pending Refund Form" value={formatInt(Number(data.statusCounts?.["review submitted"]||0)+Number(data.statusCounts?.["review accepted"]||0)+Number(data.statusCounts?.["rating submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-refund-form')} clickable />
             <Card title="Pending Payment" value={formatInt(Number(data.statusCounts?.["refund form submitted"]||0))} onClick={()=> navigate('/reviews?preset=pending-payment')} clickable />
             <Card title="Payment Pending Amt" value={formatCurrency(data.paymentPendingAmount)} />
-            <Card title=">7d Since Delivery" value={formatInt(data.overdueSinceDeliveryCount || 0)} onClick={()=> navigate('/reviews?preset=pending-review-rating')} clickable />
+            <Card title=">7d Since Delivery" value={formatInt(data.overdueSinceDeliveryCount || 0)} onClick={()=> navigate('/reviews?preset=overdue')} clickable />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

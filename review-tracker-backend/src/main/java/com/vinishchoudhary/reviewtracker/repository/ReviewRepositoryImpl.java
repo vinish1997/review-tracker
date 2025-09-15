@@ -46,11 +46,17 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         if (criteria.getDealTypeIn() != null && !criteria.getDealTypeIn().isEmpty())
             filters.add(Criteria.where("dealType").in(criteria.getDealTypeIn()));
 
-        if (criteria.getProductNameContains() != null)
+        // Quick search: if both provided, match productName OR orderId (not AND)
+        if (criteria.getProductNameContains() != null && criteria.getOrderIdContains() != null) {
+            filters.add(new Criteria().orOperator(
+                    Criteria.where("productName").regex(criteria.getProductNameContains(), "i"),
+                    Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i")
+            ));
+        } else if (criteria.getProductNameContains() != null) {
             filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));
-
-        if (criteria.getOrderIdContains() != null)
+        } else if (criteria.getOrderIdContains() != null) {
             filters.add(Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i"));
+        }
 
         if (!filters.isEmpty()) {
             query.addCriteria(new Criteria().andOperator(filters.toArray(new Criteria[0])));
@@ -80,10 +86,17 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         if (criteria.getDealType() != null) filters.add(Criteria.where("dealType").is(criteria.getDealType()));
         if (criteria.getDealTypeIn() != null && !criteria.getDealTypeIn().isEmpty())
             filters.add(Criteria.where("dealType").in(criteria.getDealTypeIn()));
-        if (criteria.getProductNameContains() != null)
+        // Mirror quick search OR logic for aggregates
+        if (criteria.getProductNameContains() != null && criteria.getOrderIdContains() != null) {
+            filters.add(new Criteria().orOperator(
+                    Criteria.where("productName").regex(criteria.getProductNameContains(), "i"),
+                    Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i")
+            ));
+        } else if (criteria.getProductNameContains() != null) {
             filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));
-        if (criteria.getOrderIdContains() != null)
+        } else if (criteria.getOrderIdContains() != null) {
             filters.add(Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i"));
+        }
         if (!filters.isEmpty()) {
             ops.add(context -> new org.bson.Document("$match", new org.bson.Document(new Criteria().andOperator(filters.toArray(new Criteria[0])).getCriteriaObject())));
         }

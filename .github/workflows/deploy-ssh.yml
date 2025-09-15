@@ -7,6 +7,18 @@ on:
         description: "Image tag to deploy (e.g., latest or sha)"
         required: true
         default: latest
+      host:
+        description: "SSH host (optional, falls back to SSH_HOST secret)"
+        required: false
+        default: ""
+      user:
+        description: "SSH username (optional, falls back to SSH_USER secret)"
+        required: false
+        default: ""
+      port:
+        description: "SSH port (optional, default 22)"
+        required: false
+        default: "22"
 
 permissions:
   contents: read
@@ -21,8 +33,9 @@ jobs:
       - name: Connect and deploy on remote host
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
+          host: ${{ github.event.inputs.host != '' && github.event.inputs.host || secrets.SSH_HOST }}
+          username: ${{ github.event.inputs.user != '' && github.event.inputs.user || secrets.SSH_USER }}
+          port: ${{ github.event.inputs.port }}
           key: ${{ secrets.SSH_KEY }}
           script_stop: true
           script: |
@@ -48,12 +61,15 @@ jobs:
               app:
                 image: ${IMAGE}
                 ports:
-                  - "
-            ${SERVER_PORT:-8080}:8080"
+                  - "\${SERVER_PORT:-8080}:8080"
                 env_file: .env
                 restart: unless-stopped
             YML
             fi
-            docker compose down || true
-            docker compose up -d
-
+            if docker compose version >/dev/null 2>&1; then
+              docker compose down || true
+              docker compose up -d
+            else
+              docker-compose down || true
+              docker-compose up -d
+            fi

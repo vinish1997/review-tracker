@@ -64,7 +64,7 @@ export default function Archive() {
       </div>
       {/* Body Card */}
       {loading ? (
-        <div className="bg-white p-4 rounded-b-xl shadow animate-pulse">
+        <div className="bg-white p-4 rounded-b-xl shadow animate-pulse text-gray-900">
           <div className="flex items-end gap-3 mb-3">
             <div className="flex-1 min-w-56">
               <div className="h-3 w-24 bg-gray-200 rounded mb-2" />
@@ -108,7 +108,7 @@ export default function Archive() {
           </div>
         </div>
       ) : (
-        <div className="bg-white p-4 rounded-b-xl shadow">
+        <div className="bg-white p-4 rounded-b-xl shadow text-gray-900">
           <div className="flex items-end gap-3 mb-3">
             <div className="flex-1 min-w-56">
               <label className="block text-sm font-medium text-gray-700">Quick Search</label>

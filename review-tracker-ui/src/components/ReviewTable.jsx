@@ -7,7 +7,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Modal from "./Modal";
 import DropdownPortal from "./DropdownPortal";
 import useToast from "./useToast";
-import { PlusIcon, PencilSquareIcon, TrashIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentDuplicateIcon, EllipsisVerticalIcon, ClipboardDocumentIcon, ArrowTopRightOnSquareIcon, ChatBubbleLeftRightIcon, AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilSquareIcon, TrashIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentDuplicateIcon, EllipsisVerticalIcon, ClipboardDocumentIcon, ArrowTopRightOnSquareIcon, ChatBubbleLeftRightIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, CheckCircleIcon, XMarkIcon, Squares2X2Icon, TagIcon, UserGroupIcon, ListBulletIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import DatePicker from "react-datepicker";
 import { formatCurrencyINR as formatCurrency, formatDate } from "../utils/format";
 
 export default function ReviewTable() {
@@ -48,34 +49,44 @@ export default function ReviewTable() {
   const [quickMode, setQuickMode] = useState("both"); // both | product | order
   const [statusInPreset, setStatusInPreset] = useState([]); // optional preset override
   const [searchParams] = useSearchParams();
-  const [showFilters, setShowFilters] = useState(false);
+  // Filters popover
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef(null);
+  const filtersAnchorRef = useRef(null);
   const [selected, setSelected] = useState(new Set());
   const [confirm, setConfirm] = useState({ open: false, title: '', message: '', onConfirm: null });
   const [mediatorQuery, setMediatorQuery] = useState('');
+  const [overdueOnly, setOverdueOnly] = useState(false); // applied overdue-only filter
+  const [overdueDraft, setOverdueDraft] = useState(false); // draft within filters popover
+  const [datePreset, setDatePreset] = useState(null); // 'delivered7' | 'delivered30' | 'delivered90' | 'range' | null
+  const [datePresetDraft, setDatePresetDraft] = useState(null);
+  const [dateRangeFrom, setDateRangeFrom] = useState(null); // Date | null
+  const [dateRangeTo, setDateRangeTo] = useState(null); // Date | null
+  const [dateRangeDraft, setDateRangeDraft] = useState({ from: null, to: null });
   const [headElevated, setHeadElevated] = useState(false);
   const tableWrapRef = useRef(null);
   const [openRowMenu, setOpenRowMenu] = useState(null); // row id
   const rowMenuRef = useRef(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const bulkRef = useRef(null);
+  const bulkAnchorRef = useRef(null);
   const [bulkAdvanceOpen, setBulkAdvanceOpen] = useState(false);
   const [bulkAdvanceDate, setBulkAdvanceDate] = useState(() => formatDate(new Date()));
-  const [gotoPageInput, setGotoPageInput] = useState('');
   const [advancingRowId, setAdvancingRowId] = useState(null);
+  const [advanceDate, setAdvanceDate] = useState(() => formatDate(new Date()));
   const advanceAnchorRef = useRef(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef(null);
+  const columnsAnchorRef = useRef(null);
+  // Filters popover state
+  const [activeFilter, setActiveFilter] = useState('presets'); // 'presets' | 'platform' | 'status' | 'deal' | 'mediator'
   // Saved views
   const [viewsOpen, setViewsOpen] = useState(false);
   const viewsRef = useRef(null);
+  const viewsAnchorRef = useRef(null);
   const [views, setViews] = useState([]);
   useEffect(() => { (async ()=> { try { const res = await listViews(); setViews(res.data||[]); } catch { void 0; } })(); }, []);
-  useEffect(() => {
-    const handler = (e) => { if (viewsRef.current && !viewsRef.current.contains(e.target)) setViewsOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-  const defaultColOrder = ['orderId','productName','platformName','status','dealType','mediatorName','amountRupees','refundAmountRupees'];
+  const defaultColOrder = ['orderId','productName','platformName','status','dealType','mediatorName','amountRupees','refundAmountRupees','orderedDate','deliveryDate','reviewSubmitDate','reviewAcceptedDate','ratingSubmittedDate','refundFormSubmittedDate','paymentReceivedDate'];
   const [colOrder, setColOrder] = useState(() => {
     try { const s = localStorage.getItem('review-col-order'); return s ? JSON.parse(s) : defaultColOrder.slice(); } catch { return defaultColOrder.slice(); }
   });
@@ -84,10 +95,14 @@ export default function ReviewTable() {
     try { const s = localStorage.getItem('review-col-widths'); return s ? JSON.parse(s) : {}; } catch { return {}; }
   });
   const [visibleCols, setVisibleCols] = useState(() => {
+    const full = { orderId:true, productName:true, platformName:true, status:true, dealType:true, mediatorName:true, amountRupees:true, refundAmountRupees:true, orderedDate:true, deliveryDate:false, reviewSubmitDate:false, reviewAcceptedDate:false, ratingSubmittedDate:false, refundFormSubmittedDate:false, paymentReceivedDate:false };
+    const compact = { orderId:true, productName:true, platformName:false, status:true, dealType:false, mediatorName:false, amountRupees:false, refundAmountRupees:true, orderedDate:true, deliveryDate:false, reviewSubmitDate:false, reviewAcceptedDate:false, ratingSubmittedDate:false, refundFormSubmittedDate:false, paymentReceivedDate:false };
     try {
       const s = localStorage.getItem('review-visible-cols');
-      return s ? JSON.parse(s) : { orderId:true, productName:true, platformName:true, status:true, dealType:true, mediatorName:true, amountRupees:true, refundAmountRupees:true };
-    } catch { return { orderId:true, productName:true, platformName:true, status:true, dealType:true, mediatorName:true, amountRupees:true, refundAmountRupees:true }; }
+      if (s) return JSON.parse(s);
+      const isSmall = typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches;
+      return isSmall ? compact : full;
+    } catch { return full; }
   });
 
   // Applied filters (only used after Apply Filters is clicked)
@@ -144,35 +159,69 @@ export default function ReviewTable() {
           return (sortDir === 'asc' ? cmp : -cmp);
         });
       }
+      // optional overdue filter (client side)
+      if (overdueOnly) {
+        list = list.filter(isOverdue);
+      }
+      if (datePreset === 'delivered7' || datePreset === 'delivered30' || datePreset === 'delivered90') {
+        const now = new Date();
+        const days = datePreset === 'delivered7' ? 7 : (datePreset === 'delivered90' ? 90 : 30);
+        const from = new Date(now.getTime() - days*24*60*60*1000);
+        list = list.filter(r => {
+          if (!r.deliveryDate) return false;
+          const d = new Date(r.deliveryDate);
+          if (Number.isNaN(d.getTime())) return false;
+          return d >= from && d <= now;
+        });
+      } else if (datePreset === 'range' && (dateRangeFrom || dateRangeTo)) {
+        const from = dateRangeFrom ? new Date(dateRangeFrom) : null;
+        const to = dateRangeTo ? new Date(dateRangeTo) : null;
+        list = list.filter(r => {
+          if (!r.deliveryDate) return false;
+          const d = new Date(r.deliveryDate);
+          if (Number.isNaN(d.getTime())) return false;
+          if (from && d < from) return false;
+          if (to && d > to) return false;
+          return true;
+        });
+      }
       setReviews(list);
       setSelected(new Set());
       setTotalPages(pr.totalPages ?? 0);
       setTotalElements(pr.totalElements ?? 0);
       setPlatforms(pRes.data);
       setMediators(mRes.data);
-      setAggTotals(aggRes.data || null);
+      setAggTotals(overdueOnly ? null : (aggRes.data || null));
     } catch (err) {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  }, [aSearch, aPlatformIds, aMediatorIds, sortField, sortDir, page, size, aQuickMode, aStatuses, aDealTypes, statusInPreset]);
+  }, [aSearch, aPlatformIds, aMediatorIds, sortField, sortDir, page, size, aQuickMode, aStatuses, aDealTypes, statusInPreset, overdueOnly, datePreset, dateRangeFrom, dateRangeTo]);
 
   // Read optional dashboard preset and apply multi-status filters
   useEffect(() => {
     const preset = searchParams.get('preset');
-    if (!preset) { setStatusInPreset([]); return; }
+    if (!preset) { setStatusInPreset([]); setOverdueOnly(false); return; }
     switch (preset) {
       case 'pending-review-rating':
         setStatusInPreset(['ordered','delivered']);
+        setOverdueOnly(false);
         break;
       case 'pending-refund-form':
         setStatusInPreset(['review submitted','review accepted','rating submitted']);
+        setOverdueOnly(false);
         break;
       case 'pending-payment':
         setStatusInPreset(['refund form submitted']);
+        setOverdueOnly(false);
+        break;
+      case 'overdue':
+        setStatusInPreset([]);
+        setOverdueOnly(true);
         break;
       default:
         setStatusInPreset([]);
+        setOverdueOnly(false);
     }
     setPage(0);
   }, [searchParams]);
@@ -229,6 +278,20 @@ export default function ReviewTable() {
         return r.orderLink ? (<a href={r.orderLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{r.productName}</a>) : r.productName;
       case 'platformName':
         return platformMap[r.platformId] || r.platformId;
+      case 'orderedDate':
+        return formatDate(r.orderedDate);
+      case 'deliveryDate':
+        return formatDate(r.deliveryDate);
+      case 'reviewSubmitDate':
+        return formatDate(r.reviewSubmitDate);
+      case 'reviewAcceptedDate':
+        return formatDate(r.reviewAcceptedDate);
+      case 'ratingSubmittedDate':
+        return formatDate(r.ratingSubmittedDate);
+      case 'refundFormSubmittedDate':
+        return formatDate(r.refundFormSubmittedDate);
+      case 'paymentReceivedDate':
+        return formatDate(r.paymentReceivedDate);
       case 'status':
         return <span className={`px-2 py-0.5 rounded text-xs ${statusClass(r.status)}`}>{r.status}</span>;
       case 'dealType':
@@ -314,7 +377,7 @@ export default function ReviewTable() {
       title: 'Save Filters',
       message: 'Save current filters for next time?',
       onConfirm: () => {
-        const data = { quickMode, search, fPlatformIds, fMediatorIds, fStatuses, fDealTypes, sortField, sortDir, size };
+        const data = { quickMode, search, fPlatformIds, fMediatorIds, fStatuses, fDealTypes, sortField, sortDir, size, overdue: overdueOnly, datePreset, dateRangeFrom: dateRangeFrom ? formatDate(dateRangeFrom) : null, dateRangeTo: dateRangeTo ? formatDate(dateRangeTo) : null };
         localStorage.setItem('review-filters', JSON.stringify(data));
         toast.show('Filters saved', 'success');
       }
@@ -334,6 +397,10 @@ export default function ReviewTable() {
       setSortField(d.sortField||'orderedDate');
       setSortDir(d.sortDir||'desc');
       setSize(d.size||10);
+      setOverdueOnly(!!d.overdue);
+      setDatePreset(d.datePreset || null);
+      setDateRangeFrom(d.dateRangeFrom ? new Date(d.dateRangeFrom) : null);
+      setDateRangeTo(d.dateRangeTo ? new Date(d.dateRangeTo) : null);
       // apply loaded filters initially
       setAPlatformIds(d.fPlatformIds||[]);
       setAMediatorIds(d.fMediatorIds||[]);
@@ -456,9 +523,26 @@ export default function ReviewTable() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Ensure lookups are available when filters popover is opened
+  useEffect(() => {
+    if (!filtersOpen) return;
+    // Default to Quick Presets on open
+    setActiveFilter('presets');
+    setOverdueDraft(overdueOnly);
+    setDatePresetDraft(datePreset);
+    setDateRangeDraft({ from: dateRangeFrom, to: dateRangeTo });
+    (async () => {
+      try {
+        if (!platforms.length) { const p = await getPlatforms(); setPlatforms(p.data||[]); }
+        if (!mediators.length) { const m = await getMediators(); setMediators(m.data||[]); }
+      } catch { /* ignore */ }
+    })();
+  }, [filtersOpen]);
+
   // Focus the advance date input when the advance menu opens
   useEffect(() => {
-    if (advancingRowId && advanceAnchorRef.current) {
+    if (advancingRowId) {
+      setAdvanceDate(formatDate(new Date()));
       advanceAnchorRef.current?.focus?.();
     }
   }, [advancingRowId]);
@@ -517,42 +601,40 @@ export default function ReviewTable() {
         </div>
       ) : (
         /* Body card */
-        <div className="bg-white p-4 rounded-b-xl shadow">
-        {/* Search and Toolbar */}
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="bg-white p-4 rounded-b-xl shadow text-gray-900">
+        {/* Search and Toolbar (sticky) */}
+        <div className="sticky top-0 z-20 bg-white mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-gray-100 py-2">
           <div className="flex-1 min-w-56">
             <label className="block text-sm font-medium text-gray-700">Quick Search</label>
-            <div className="flex gap-2 flex-wrap">
-              <input id="quick-search-input" type="text" placeholder="Search by product or order ID" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" value={search} onChange={(e)=> setSearch(e.target.value)} />
-              <select className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" value={quickMode} onChange={(e)=> { setQuickMode(e.target.value); setPage(0);} }>
+            <div className="flex gap-2 items-end flex-col sm:flex-row">
+              <input id="quick-search-input" type="text" placeholder="Search by product or order ID" className="min-w-0 w-full sm:w-auto flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-400" value={search} onChange={(e)=> setSearch(e.target.value)} />
+              <select className="w-full sm:w-56 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900" value={quickMode} onChange={(e)=> { setQuickMode(e.target.value); setPage(0);} }>
                 <option value="both">Product + Order ID</option>
                 <option value="product">Product</option>
                 <option value="order">Order ID</option>
               </select>
-              <button onClick={()=> { setASearch(search); setAQuickMode(quickMode); setPage(0); loadReviews(); }} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow">Search</button>
-              <div className="flex items-center gap-1 ml-auto text-xs">
-                <span className="text-gray-500 mr-1">Quick filters:</span>
-                <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={()=> navigate('/reviews')}>All</button>
-                <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={()=> navigate('/reviews?preset=pending-review-rating')}>Pending Review/Rating</button>
-                <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={()=> navigate('/reviews?preset=pending-refund-form')}>Pending Refund Form</button>
-                <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={()=> navigate('/reviews?preset=pending-payment')}>Pending Payment</button>
-              </div>
+              <button onClick={()=> { setASearch(search); setAQuickMode(quickMode); setPage(0); loadReviews(); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow">Search</button>
             </div>
+            {/* Mobile quick filters */}
+            <div className="hidden" />
           </div>
-          <div className="flex gap-2 md:self-end">
-            <button onClick={() => setShowFilters(s=>!s)} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">{showFilters ? 'Hide Filters' : 'Filters'}</button>
+          <div className="flex flex-col gap-2 md:flex-row md:self-end">
+            <div className="relative" ref={filtersRef}>
+              <button ref={filtersAnchorRef} onClick={() => setFiltersOpen(o=>!o)} className="w-full sm:w-auto px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">Filters ▾</button>
+            </div>
+            <div className="flex gap-2 flex-row flex-wrap">
             <div className="relative" ref={viewsRef}>
-              <button onClick={()=> setViewsOpen(o=>!o)} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50">Views ▾</button>
-              {viewsOpen && (
-                <div className="absolute right-0 mt-1 bg-white border shadow-lg rounded-md w-64 z-50 p-2 text-sm">
-                  <div className="flex gap-2 mb-2">
-                    <input type="text" placeholder="New view name" className="border p-1 rounded flex-1" id="new-view-name" />
-                    <button className="px-2 py-1 bg-indigo-600 text-white rounded" onClick={async ()=> {
+                <button ref={viewsAnchorRef} onClick={()=> setViewsOpen(o=>!o)} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700 min-w-[110px]">Views ▾</button>
+              <DropdownPortal open={viewsOpen} anchorRef={viewsAnchorRef} onClose={()=> setViewsOpen(false)} preferred="down" align="right" className="w-64 max-w-[95vw] p-2 text-sm text-gray-800">
+                  <div className="flex gap-2 mb-2 min-w-0">
+                    <input type="text" placeholder="New view name" className="border p-1 rounded flex-1 min-w-0 bg-white text-gray-900" id="new-view-name" />
+                    <button className="px-2 py-1 bg-indigo-600 text-white rounded flex-shrink-0 whitespace-nowrap" onClick={async ()=> {
                       const name = document.getElementById('new-view-name')?.value?.trim();
                       if (!name) { toast.show('Enter view name','error'); return; }
                       const cfg = {
                         quickMode, search, fPlatformIds, fMediatorIds, fStatuses, fDealTypes,
-                        sortField, sortDir, size, colOrder, visibleCols
+                        sortField, sortDir, size, colOrder, visibleCols, overdue: overdueOnly,
+                        datePreset, dateRangeFrom: dateRangeFrom ? formatDate(dateRangeFrom) : null, dateRangeTo: dateRangeTo ? formatDate(dateRangeTo) : null
                       };
                       try {
                         const res = await apiSaveView({ name, config: cfg });
@@ -585,6 +667,10 @@ export default function ReviewTable() {
                             setADealTypes(cfg.fDealTypes||[]);
                             setASearch(cfg.search||'');
                             setAQuickMode(cfg.quickMode||'both');
+                            setOverdueOnly(!!cfg.overdue);
+                            setDatePreset(cfg.datePreset || null);
+                            setDateRangeFrom(cfg.dateRangeFrom ? new Date(cfg.dateRangeFrom) : null);
+                            setDateRangeTo(cfg.dateRangeTo ? new Date(cfg.dateRangeTo) : null);
                             setPage(0);
                             loadReviews();
                             setViewsOpen(false);
@@ -612,41 +698,37 @@ export default function ReviewTable() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+              </DropdownPortal>
             </div>
-            <div className="relative" ref={bulkRef}>
-              <button onClick={() => setBulkOpen(o=>!o)} className="px-3 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-500">Bulk Actions ▾</button>
-              {bulkOpen && (
-                <div className="absolute right-0 mt-1 bg-white border shadow-lg rounded-md w-56 z-50 overflow-hidden">
-                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); if (selected.size===0) { toast.show('Select rows first','error'); } else { setBulkAdvanceOpen(true); setBulkAdvanceDate(formatDate(new Date())); } }}>
-                    <span className="w-4 h-4 inline-flex items-center justify-center">⏭</span>
-                    <span>Advance Selected…</span>
-                  </button>
-                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); doExport(true); }}>
-                    <ArrowDownTrayIcon className="w-4 h-4"/>
-                    <span>Export Selected</span>
-                  </button>
-                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); doExport(false); }}>
-                    <ArrowDownTrayIcon className="w-4 h-4"/>
-                    <span>Export All</span>
-                  </button>
-                  <label className="block w-full text-left px-4 py-2 hover:bg-gray-50 cursor-pointer inline-flex items-center gap-2">
-                    <ArrowUpTrayIcon className="w-4 h-4"/>
-                    <span>Import CSV</span>
-                    <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e)=> { setBulkOpen(false); onImport(e); }}/>
-                  </label>
-                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-50 text-red-600 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); doBulkDelete(); }}>
-                    <TrashIcon className="w-4 h-4"/>
-                    <span>Delete Selected</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="relative" ref={columnsRef}>
-              <button onClick={()=> setColumnsOpen(o=>!o)} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 inline-flex items-center gap-2"><AdjustmentsHorizontalIcon className="w-4 h-4"/>Columns</button>
-              {columnsOpen && (
-                <div className="absolute right-0 mt-1 bg-white border shadow-lg rounded-md w-56 z-50 p-2 text-sm">
+              <div className="relative" ref={bulkRef}>
+                <button ref={bulkAnchorRef} onClick={() => setBulkOpen(o=>!o)} className="px-3 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-500 min-w-[110px]">Bulk ▾</button>
+              <DropdownPortal open={bulkOpen} anchorRef={bulkAnchorRef} onClose={()=> setBulkOpen(false)} preferred="down" align="right" className="w-60 p-1 text-gray-800">
+                <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); if (selected.size===0) { toast.show('Select rows first','error'); } else { setBulkAdvanceOpen(true); setBulkAdvanceDate(formatDate(new Date())); } }}>
+                  <span className="w-4 h-4 inline-flex items-center justify-center">⏭</span>
+                  <span>Advance selected…</span>
+                </button>
+                <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); doExport(true); }}>
+                  <ArrowDownTrayIcon className="w-4 h-4"/>
+                  <span>Export selected</span>
+                </button>
+                <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); doExport(false); }}>
+                  <ArrowDownTrayIcon className="w-4 h-4"/>
+                  <span>Export all</span>
+                </button>
+                <label className="block w-full text-left px-3 py-2 hover:bg-gray-50 cursor-pointer inline-flex items-center gap-2">
+                  <ArrowUpTrayIcon className="w-4 h-4"/>
+                  <span>Import CSV</span>
+                  <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e)=> { setBulkOpen(false); onImport(e); }}/>
+                </label>
+                <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); doBulkDelete(); }}>
+                  <TrashIcon className="w-4 h-4"/>
+                  <span>Delete selected</span>
+                </button>
+              </DropdownPortal>
+              </div>
+              <div className="relative" ref={columnsRef}>
+                <button ref={columnsAnchorRef} onClick={()=> setColumnsOpen(o=>!o)} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 inline-flex items-center gap-2 text-gray-700 min-w-[110px]"><AdjustmentsHorizontalIcon className="w-4 h-4"/>Cols ▾</button>
+                <DropdownPortal open={columnsOpen} anchorRef={columnsAnchorRef} onClose={()=> setColumnsOpen(false)} preferred="down" align="right" className="w-56 p-2 text-sm text-gray-800">
                   {[
                     { key:'orderId', label:'Order ID' },
                     { key:'productName', label:'Product' },
@@ -656,9 +738,26 @@ export default function ReviewTable() {
                     { key:'mediatorName', label:'Mediator' },
                     { key:'amountRupees', label:'Amount' },
                     { key:'refundAmountRupees', label:'Refund' },
+                    { key:'orderedDate', label:'Ordered Date' },
+                    { key:'deliveryDate', label:'Delivery Date' },
+                    { key:'reviewSubmitDate', label:'Review Submitted' },
+                    { key:'reviewAcceptedDate', label:'Review Accepted' },
+                    { key:'ratingSubmittedDate', label:'Rating Submitted' },
+                    { key:'refundFormSubmittedDate', label:'Refund Form Submitted' },
+                    { key:'paymentReceivedDate', label:'Payment Received' },
                   ].map(c => (
-                    <label key={c.key} className="flex items-center gap-2 p-1">
-                      <input type="checkbox" checked={!!visibleCols[c.key]} onChange={(e)=> setVisibleCols(v => ({ ...v, [c.key]: e.target.checked }))} />
+                    <label key={c.key} className="flex items-center gap-2 p-1" onClick={(e)=> e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={!!visibleCols[c.key]}
+                        onChange={(e)=> {
+                          const checked = e.target.checked;
+                          setVisibleCols(v => ({ ...v, [c.key]: checked }));
+                          if (checked) {
+                            setColOrder(prev => prev.includes(c.key) ? prev : [...prev, c.key]);
+                          }
+                        }}
+                      />
                       <span>{c.label}</span>
                     </label>
                   ))}
@@ -684,136 +783,231 @@ export default function ReviewTable() {
                       } catch { /* ignore */ }
                     }}>Load</button>
                     <button className="px-2 py-1 border rounded" onClick={()=> {
-                      setVisibleCols({ orderId:true, productName:true, platformName:true, status:true, dealType:true, mediatorName:true, amountRupees:true, refundAmountRupees:true });
-                      setColOrder(['orderId','productName','platformName','status','dealType','mediatorName','amountRupees','refundAmountRupees']);
+                      setVisibleCols({ orderId:true, productName:true, platformName:true, status:true, dealType:true, mediatorName:true, amountRupees:true, refundAmountRupees:true, orderedDate:true, deliveryDate:false, reviewSubmitDate:false, reviewAcceptedDate:false, ratingSubmittedDate:false, refundFormSubmittedDate:false, paymentReceivedDate:false });
+                      setColOrder(['orderId','productName','platformName','status','dealType','mediatorName','amountRupees','refundAmountRupees','orderedDate','deliveryDate','reviewSubmitDate','reviewAcceptedDate','ratingSubmittedDate','refundFormSubmittedDate','paymentReceivedDate']);
                       setColWidths({});
                       toast.show('Column settings reset','success');
                     }}>Reset</button>
                   </div>
-                </div>
-              )}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <button className="px-2 py-1 border rounded" onClick={()=> {
+                      const compact = { orderId:true, productName:true, platformName:false, status:true, dealType:false, mediatorName:false, amountRupees:false, refundAmountRupees:true, orderedDate:true, deliveryDate:false, reviewSubmitDate:false, reviewAcceptedDate:false, ratingSubmittedDate:false, refundFormSubmittedDate:false, paymentReceivedDate:false };
+                      setVisibleCols(compact);
+                      toast.show('Compact columns applied','success');
+                    }}>Compact</button>
+                    <button className="px-2 py-1 border rounded" onClick={()=> {
+                      const full = { orderId:true, productName:true, platformName:true, status:true, dealType:true, mediatorName:true, amountRupees:true, refundAmountRupees:true, orderedDate:true, deliveryDate:true, reviewSubmitDate:true, reviewAcceptedDate:true, ratingSubmittedDate:true, refundFormSubmittedDate:true, paymentReceivedDate:true };
+                      setVisibleCols(full);
+                      toast.show('All columns shown','success');
+                    }}>All</button>
+                  </div>
+                </DropdownPortal>
+              </div>
             </div>
-            <button onClick={() => navigate("/reviews/new")} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-md inline-flex items-center gap-2 shadow"><PlusIcon className="w-4 h-4"/>Add Review</button>
+            <button onClick={() => navigate("/reviews/new")} className="hidden md:inline-flex bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-md items-center gap-2 shadow"><PlusIcon className="w-4 h-4"/><span>Add</span></button>
           </div>
         </div>
 
-      {/* Advanced Filters */}
-      {showFilters && (
-        <div className="mb-4 bg-slate-50 p-4 rounded-md border border-gray-200">
-          <div className="grid grid-cols-4 gap-6">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-sm font-medium">Platform</div>
-                <div className="space-x-2">
-                  <button type="button" className="text-xs text-indigo-600 hover:underline" onClick={()=> setFPlatformIds(platforms.map(p=>p.id))}>Select All</button>
-                  <button type="button" className="text-xs text-gray-600 hover:underline" onClick={()=> setFPlatformIds([])}>Deselect All</button>
-                </div>
-              </div>
-              <div className="max-h-40 overflow-auto space-y-1">
-                {platforms.map(p => (
-                  <label key={p.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={fPlatformIds.includes(p.id)} onChange={(e)=> {
-                      setFPlatformIds(prev => e.target.checked ? [...prev, p.id] : prev.filter(x=>x!==p.id));
-                    }}/>
-                    <span>{p.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-sm font-medium">Status</div>
-                <div className="space-x-2">
-                  <button type="button" className="text-xs text-indigo-600 hover:underline" onClick={()=> setFStatuses(statusOptions.slice())}>Select All</button>
-                  <button type="button" className="text-xs text-gray-600 hover:underline" onClick={()=> setFStatuses([])}>Deselect All</button>
-                </div>
-              </div>
-              <div className="max-h-40 overflow-auto space-y-1">
-                {statusOptions.map(s => (
-                  <label key={s} className="flex items-center gap-2 text-sm capitalize">
-                    <input type="checkbox" checked={fStatuses.includes(s)} onChange={(e)=> {
-                      setFStatuses(prev => e.target.checked ? [...prev, s] : prev.filter(x=>x!==s));
-                    }}/>
-                    <span>{s}</span>
-                  </label>
-                ))}
+      {/* Filters Popover */}
+      <DropdownPortal open={filtersOpen} anchorRef={filtersAnchorRef} onClose={()=> setFiltersOpen(false)} preferred="down" align="right" className="p-3 text-sm text-gray-900 w-[90vw] max-w-3xl md:w-[800px]">
+        <div className="max-h-[70vh] overflow-auto">
+          <div className="md:grid md:grid-cols-12 gap-4">
+            <div className="md:col-span-4">
+              <div className="flex gap-2 md:flex-col overflow-x-auto no-scrollbar">
+                <button type="button" onClick={()=> setActiveFilter('presets')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='presets' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                  <SparklesIcon className="w-4 h-4"/>
+                  <span className="hidden sm:inline">Quick Presets</span>
+                </button>
+                <button type="button" onClick={()=> setActiveFilter('platform')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='platform' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                  <Squares2X2Icon className="w-4 h-4"/>
+                  <span className="hidden sm:inline">Platform</span>
+                </button>
+                <button type="button" onClick={()=> setActiveFilter('status')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='status' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                  <ListBulletIcon className="w-4 h-4"/>
+                  <span className="hidden sm:inline">Status</span>
+                </button>
+                <button type="button" onClick={()=> setActiveFilter('deal')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='deal' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                  <TagIcon className="w-4 h-4"/>
+                  <span className="hidden sm:inline">Deal Type</span>
+                </button>
+                <button type="button" onClick={()=> setActiveFilter('mediator')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='mediator' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                  <UserGroupIcon className="w-4 h-4"/>
+                  <span className="hidden sm:inline">Mediator</span>
+                </button>
               </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-sm font-medium">Deal Type</div>
-                <div className="space-x-2">
-                  <button type="button" className="text-xs text-indigo-600 hover:underline" onClick={()=> setFDealTypes(dealTypeOptions.map(d=>d.value))}>Select All</button>
-                  <button type="button" className="text-xs text-gray-600 hover:underline" onClick={()=> setFDealTypes([])}>Deselect All</button>
+            <div className="md:col-span-8">
+              {/* Active filter content */}
+              {activeFilter === 'presets' && (
+                <div className="bg-white rounded border p-3">
+                  <div className="font-medium mb-2">Quick Presets</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft(null); setDateRangeDraft({from:null,to:null}); }}>Clear presets</button>
+                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${overdueDraft ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(true); setDatePresetDraft(null); }}>Overdue Since Delivery</button>
+                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${datePresetDraft==='delivered7' ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered7'); setDateRangeDraft({from:null,to:null}); }}>Delivered last 7 days</button>
+                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${datePresetDraft==='delivered30' ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered30'); }}>Delivered last 30 days</button>
+                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${datePresetDraft==='delivered90' ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered90'); setDateRangeDraft({from:null,to:null}); }}>Delivered last 90 days</button>
+                    <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses(['ordered','delivered']); setOverdueDraft(false); setDatePresetDraft(null); }}>Pending Review/Rating</button>
+                    <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses(['review submitted','review accepted','rating submitted']); setOverdueDraft(false); setDatePresetDraft(null); }}>Pending Refund Form</button>
+                    <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses(['refund form submitted']); setOverdueDraft(false); setDatePresetDraft(null); }}>Pending Payment</button>
+                  </div>
+                  <div className="mt-3">
+                    <div className="text-sm font-medium mb-1">Custom delivery date range</div>
+                    <div className="flex items-center gap-2">
+                      <DatePicker
+                        selected={dateRangeDraft.from ? new Date(dateRangeDraft.from) : null}
+                        onChange={(d)=> { setDateRangeDraft(prev => ({ ...prev, from: d })); setDatePresetDraft('range'); setOverdueDraft(false); }}
+                        placeholderText="From"
+                        className="border p-1 rounded bg-white text-gray-900"
+                      />
+                      <span className="text-gray-500">to</span>
+                      <DatePicker
+                        selected={dateRangeDraft.to ? new Date(dateRangeDraft.to) : null}
+                        onChange={(d)=> { setDateRangeDraft(prev => ({ ...prev, to: d })); setDatePresetDraft('range'); setOverdueDraft(false); }}
+                        placeholderText="To"
+                        className="border p-1 rounded bg-white text-gray-900"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="max-h-40 overflow-auto space-y-1">
-                {dealTypeOptions.map(d => (
-                  <label key={d.value} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={fDealTypes.includes(d.value)} onChange={(e)=> {
-                      setFDealTypes(prev => e.target.checked ? [...prev, d.value] : prev.filter(x=>x!==d.value));
-                    }}/>
-                    <span>{d.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-sm font-medium">Mediator</div>
-                <div className="space-x-2">
-                  <button type="button" className="text-xs text-indigo-600 hover:underline" onClick={()=> setFMediatorIds(mediators.map(m=>m.id))}>Select All</button>
-                  <button type="button" className="text-xs text-gray-600 hover:underline" onClick={()=> setFMediatorIds([])}>Deselect All</button>
+              )}
+              {activeFilter === 'platform' && (
+                <div className="bg-white rounded border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Platform</div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" title="Select all" aria-label="Select all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFPlatformIds(platforms.map(p=>p.id))}><CheckCircleIcon className="w-4 h-4 text-indigo-600"/></button>
+                      <button type="button" title="Deselect all" aria-label="Deselect all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFPlatformIds([])}><XMarkIcon className="w-4 h-4 text-gray-600"/></button>
+                    </div>
+                  </div>
+                  <div className="mt-2 max-h-40 overflow-auto space-y-1 no-scrollbar">
+                    {platforms.map(p => (
+                      <label key={p.id} className="flex items-center gap-2 text-sm text-gray-800">
+                        <input type="checkbox" checked={fPlatformIds.includes(p.id)} onChange={(e)=> {
+                          setFPlatformIds(prev => e.target.checked ? [...prev, p.id] : prev.filter(x=>x!==p.id));
+                        }}/>
+                        <span>{p.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <input className="border p-1 rounded w-full mb-2 text-sm" placeholder="Search name or phone" value={mediatorQuery} onChange={(e)=> setMediatorQuery(e.target.value)} />
-              <div className="max-h-40 overflow-auto space-y-1">
-                {filteredMediators.map(m => (
-                  <label key={m.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={fMediatorIds.includes(m.id)} onChange={(e)=> {
-                      setFMediatorIds(prev => e.target.checked ? [...prev, m.id] : prev.filter(x=>x!==m.id));
-                    }}/>
-                    <span>{m.name} {m.phone ? `· ${m.phone}` : ''}</span>
-                  </label>
-                ))}
-              </div>
+              )}
+              {activeFilter === 'status' && (
+                <div className="bg-white rounded border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Status</div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" title="Select all" aria-label="Select all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFStatuses(statusOptions.slice())}><CheckCircleIcon className="w-4 h-4 text-indigo-600"/></button>
+                      <button type="button" title="Deselect all" aria-label="Deselect all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFStatuses([])}><XMarkIcon className="w-4 h-4 text-gray-600"/></button>
+                    </div>
+                  </div>
+                  <div className="mt-2 max-h-40 overflow-auto space-y-1 no-scrollbar">
+                    {statusOptions.map(s => (
+                      <label key={s} className="flex items-center gap-2 text-sm capitalize text-gray-800">
+                        <input type="checkbox" checked={fStatuses.includes(s)} onChange={(e)=> {
+                          setFStatuses(prev => e.target.checked ? [...prev, s] : prev.filter(x=>x!==s));
+                        }}/>
+                        <span>{s}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {activeFilter === 'deal' && (
+                <div className="bg-white rounded border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Deal Type</div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" title="Select all" aria-label="Select all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFDealTypes(dealTypeOptions.map(d=>d.value))}><CheckCircleIcon className="w-4 h-4 text-indigo-600"/></button>
+                      <button type="button" title="Deselect all" aria-label="Deselect all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFDealTypes([])}><XMarkIcon className="w-4 h-4 text-gray-600"/></button>
+                    </div>
+                  </div>
+                  <div className="mt-2 max-h-40 overflow-auto space-y-1 no-scrollbar">
+                    {dealTypeOptions.map(d => (
+                      <label key={d.value} className="flex items-center gap-2 text-sm text-gray-800">
+                        <input type="checkbox" checked={fDealTypes.includes(d.value)} onChange={(e)=> {
+                          setFDealTypes(prev => e.target.checked ? [...prev, d.value] : prev.filter(x=>x!==d.value));
+                        }}/>
+                        <span>{d.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {activeFilter === 'mediator' && (
+                <div className="bg-white rounded border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Mediator</div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" title="Select all" aria-label="Select all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFMediatorIds(mediators.map(m=>m.id))}><CheckCircleIcon className="w-4 h-4 text-indigo-600"/></button>
+                      <button type="button" title="Deselect all" aria-label="Deselect all" className="p-1 rounded hover:bg-gray-50" onClick={()=> setFMediatorIds([])}><XMarkIcon className="w-4 h-4 text-gray-600"/></button>
+                    </div>
+                  </div>
+                  <input className="mt-2 border p-1 rounded w-full text-sm text-gray-900 placeholder-gray-400 bg-white" placeholder="Search name or phone" value={mediatorQuery} onChange={(e)=> setMediatorQuery(e.target.value)} />
+                  <div className="mt-2 max-h-40 overflow-auto space-y-1 no-scrollbar">
+                    {filteredMediators.map(m => (
+                      <label key={m.id} className="flex items-center gap-2 text-sm text-gray-800">
+                        <input type="checkbox" checked={fMediatorIds.includes(m.id)} onChange={(e)=> {
+                          setFMediatorIds(prev => e.target.checked ? [...prev, m.id] : prev.filter(x=>x!==m.id));
+                        }}/>
+                        <span>{m.name} {m.phone ? `· ${m.phone}` : ''}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
             </div>
           </div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={()=> { setAPlatformIds(fPlatformIds); setAMediatorIds(fMediatorIds); setAStatuses(fStatuses); setADealTypes(fDealTypes); setPage(0); loadReviews(); }} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">Apply Filters</button>
-            <button onClick={()=> setConfirm({ open:true, title:'Clear Filters', message:'Clear all selected filters?', onConfirm:()=> { setFPlatformIds([]); setFMediatorIds([]); setFStatuses([]); setFDealTypes([]); } })} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50">Clear Filters</button>
-            <button onClick={saveFilters} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50">Save Filters</button>
+          <div className="mt-3 flex flex-col sm:flex-row gap-2">
+            <button onClick={()=> { setAPlatformIds(fPlatformIds); setAMediatorIds(fMediatorIds); setAStatuses(fStatuses); setADealTypes(fDealTypes); setOverdueOnly(overdueDraft); setDatePreset(datePresetDraft); setDateRangeFrom(dateRangeDraft.from || null); setDateRangeTo(dateRangeDraft.to || null); setPage(0); loadReviews(); setFiltersOpen(false); }} className="w-full sm:w-auto px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">Apply Filters</button>
+            <button onClick={()=> setConfirm({ open:true, title:'Clear Filters', message:'Clear all selected filters?', onConfirm:()=> { setFPlatformIds([]); setFMediatorIds([]); setFStatuses([]); setFDealTypes([]); } })} className="w-full sm:w-auto px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">Clear Filters</button>
+            <button onClick={saveFilters} className="w-full sm:w-auto px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">Save Filters</button>
           </div>
         </div>
-      )}
+      </DropdownPortal>
+      {/* Floating Add for mobile */}
+      <button
+        onClick={() => navigate('/reviews/new')}
+        className="md:hidden fixed bottom-4 right-4 z-40 rounded-full bg-emerald-600 text-white w-12 h-12 shadow-lg flex items-center justify-center active:scale-95"
+        aria-label="Add review"
+        title="Add review"
+      >
+        <PlusIcon className="w-6 h-6" />
+      </button>
 
       {/* Pagination */}
       <div className="flex items-center justify-between mb-3 text-sm text-gray-700">
         <div>
-          Showing page {page + 1} of {Math.max(totalPages, 1)} ({totalElements} items)
+          Page {page + 1} of {Math.max(totalPages, 1)} • {totalElements} items
         </div>
-        <div className="space-x-2">
-          <button disabled={page <= 0} onClick={() => setPage((p)=>Math.max(0,p-1))} className="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
-          <button disabled={page >= totalPages - 1} onClick={() => setPage((p)=>Math.min(totalPages-1, p+1))} className="px-3 py-1 border rounded disabled:opacity-50">Next</button>
-          <select value={size} onChange={(e)=> { setSize(Number(e.target.value)); setPage(0);} } className="ml-2 border p-1 rounded">
+        <div className="space-x-2 flex items-center">
+          <button disabled={page <= 0} onClick={() => setPage((p)=>Math.max(0,p-1))} className="px-3 py-1 border rounded disabled:opacity-50" title="Previous">‹</button>
+          <button disabled={page >= totalPages - 1} onClick={() => setPage((p)=>Math.min(totalPages-1, p+1))} className="px-3 py-1 border rounded disabled:opacity-50" title="Next">›</button>
+          <select value={size} onChange={(e)=> { setSize(Number(e.target.value)); setPage(0);} } className="ml-2 border p-1 rounded bg-white text-gray-900">
             {[10,20,50,100].map(n => <option key={n} value={n}>{n}/page</option>)}
           </select>
-          <input type="number" min="1" max={Math.max(totalPages,1)} value={gotoPageInput} onChange={(e)=> setGotoPageInput(e.target.value)} placeholder="Go to" className="w-20 border p-1 rounded" onKeyDown={(e)=> { if (e.key==='Enter') { const v = Math.max(1, Math.min(Number(e.currentTarget.value||'1'), Math.max(totalPages,1))); setPage(v-1); } }} />
-          <button className="px-2 py-1 border rounded" onClick={()=> { const v = Math.max(1, Math.min(Number(gotoPageInput||'1'), Math.max(totalPages,1))); setPage(v-1); }}>Go</button>
         </div>
-        </div>
+      </div>
 
       {/* Table */}
-      <div ref={tableWrapRef} className="relative rounded shadow overflow-auto">
+      <div
+        ref={tableWrapRef}
+        className="relative rounded shadow overflow-auto pb-16 md:pb-0"
+        style={{
+          // Give the table its own scrollable area so sticky header/virtualization work reliably
+          maxHeight: '70vh',
+        }}
+      >
       {headElevated && (
         <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-gray-300/40 to-transparent" />
       )}
-      <table className="w-full border-collapse bg-white">
-        <thead className={`sticky top-0 z-10 ${headElevated ? 'shadow-md' : ''}`}>
+      <table className="w-full border-collapse bg-white text-sm">
+        <thead className={`sticky top-0 z-10 ${headElevated ? 'shadow-md' : ''} text-gray-700`}>
           <tr className="bg-gray-100/95 backdrop-blur text-left select-none">
             <th className="p-2 border"><input type="checkbox" aria-label="Select all" checked={selected.size>0 && selected.size===reviews.length} onChange={(e)=> toggleAll(e.target.checked)} /></th>
             {colOrder.filter(k => visibleCols[k]).map((key) => {
-              const labels = { orderId:'Order ID', productName:'Product', platformName:'Platform', status:'Status', dealType:'Deal Type', mediatorName:'Mediator', amountRupees:'Amount', refundAmountRupees:'Refund' };
+              const labels = { orderId:'Order ID', productName:'Product', platformName:'Platform', status:'Status', dealType:'Deal Type', mediatorName:'Mediator', amountRupees:'Amount', refundAmountRupees:'Refund', orderedDate:'Ordered', deliveryDate:'Delivery', reviewSubmitDate:'Review Submitted', reviewAcceptedDate:'Review Accepted', ratingSubmittedDate:'Rating Submitted', refundFormSubmittedDate:'Refund Form', paymentReceivedDate:'Payment Received' };
               return (
                 <th
                   key={key}
@@ -866,14 +1060,18 @@ export default function ReviewTable() {
               <tr ref={rowVirtualizer.measureElement} key={r.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isOverdue(r) ? 'bg-red-50' : ''}`}>
                 <td className="p-2"><input type="checkbox" aria-label={`Select ${r.orderId}`} checked={selected.has(r.id)} onChange={(e)=> toggleOne(r.id, e.target.checked)} /></td>
                 {colOrder.filter(k => visibleCols[k]).map(key => (
-                  <td key={key} className="p-2" style={{ width: colWidths[key] ? `${colWidths[key]}px` : undefined }}>{renderCell(key, r)}</td>
+                  <td
+                    key={key}
+                    className={`p-2 ${key==='orderId' ? 'whitespace-nowrap' : ''} ${key==='status' ? 'text-center' : ''}`}
+                    style={{ width: colWidths[key] ? `${colWidths[key]}px` : undefined }}
+                  >{renderCell(key, r)}</td>
                 ))}
                 <td className="p-2">
                   <div className="relative inline-block">
                     <button ref={rowMenuRef} className="px-2 py-1 border rounded-md border-gray-300 bg-white hover:bg-gray-50" onClick={(e)=> { e.stopPropagation(); setOpenRowMenu(prev => prev===r.id ? null : r.id); }} aria-haspopup="menu" aria-expanded={openRowMenu===r.id}>
                       <EllipsisVerticalIcon className="w-5 h-5 text-gray-600"/>
                     </button>
-                    <DropdownPortal open={openRowMenu===r.id} anchorRef={rowMenuRef} onClose={()=> setOpenRowMenu(null)} preferred="up" align="right" className="w-44 overflow-hidden">
+                    <DropdownPortal open={openRowMenu===r.id} anchorRef={rowMenuRef} onClose={()=> setOpenRowMenu(null)} preferred="up" align="right" className="w-44 overflow-hidden text-gray-800">
                       <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={()=> { setOpenRowMenu(null); navigate(`/reviews/edit/${r.id}`); }}>
                         <PencilSquareIcon className="w-4 h-4"/>
                         <span>Edit</span>
@@ -891,7 +1089,7 @@ export default function ReviewTable() {
                         <span>Delete</span>
                       </button>
                     </DropdownPortal>
-                    <DropdownPortal open={advancingRowId===r.id} anchorRef={rowMenuRef} onClose={()=> setAdvancingRowId(null)} preferred="up" align="right" className="w-60 p-2">
+                    <DropdownPortal open={advancingRowId===r.id} anchorRef={rowMenuRef} onClose={()=> setAdvancingRowId(null)} preferred="up" align="right" className="w-60 p-2 text-gray-800">
                       {(() => {
                         const nf = nextFieldFor(r);
                         if (!nf) return <div className="px-2 py-1 text-sm">No further steps.</div>;
@@ -899,10 +1097,13 @@ export default function ReviewTable() {
                           <div className="text-sm">
                             <div className="mb-1 text-gray-600">Set {nf.replace(/([A-Z])/g,' $1')} date</div>
                             <div className="flex items-center gap-2">
-                              <input ref={advanceAnchorRef} type="date" className="border p-1 rounded w-full" defaultValue={formatDate(new Date())} onKeyDown={(e)=> { if (e.key==='Enter') e.currentTarget.nextSibling?.click(); }} />
-                              <button className="px-2 py-1 bg-blue-600 text-white rounded" onClick={async (e)=> {
-                                const input = e.currentTarget.previousSibling;
-                                const dateStr = input?.value;
+                              <DatePicker
+                                selected={advanceDate ? new Date(advanceDate) : null}
+                                onChange={(d)=> setAdvanceDate(formatDate(d))}
+                                className="border p-1 rounded w-full bg-white text-gray-900"
+                              />
+                              <button className="px-2 py-1 bg-blue-600 text-white rounded" onClick={async ()=> {
+                                const dateStr = advanceDate;
                                 if (!dateStr) return;
                                 try {
                                   await advanceReview(r.id, dateStr);
@@ -926,7 +1127,7 @@ export default function ReviewTable() {
           )}
           {reviews.length === 0 && (
             <tr>
-              <td colSpan="10" className="p-4 text-center text-gray-500">
+              <td colSpan={visibleCountCols} className="p-4 text-center text-gray-500">
                 No reviews found.
               </td>
             </tr>
@@ -938,14 +1139,16 @@ export default function ReviewTable() {
           const totalAmount = serverAmount != null ? Number(serverAmount) : reviews.reduce((s, r) => s + (+r.amountRupees || 0), 0);
           const totalRefund = serverRefund != null ? Number(serverRefund) : reviews.reduce((s, r) => s + (+(r.refundAmountRupees ?? ((+r.amountRupees||0) - (+r.lessRupees||0))) || 0), 0);
           const selectedRefund = reviews.filter(r => selected.has(r.id)).reduce((s, r) => s + (+(r.refundAmountRupees ?? ((+r.amountRupees||0) - (+r.lessRupees||0))) || 0), 0);
+          const showAmount = !!visibleCols.amountRupees;
+          const showRefund = !!visibleCols.refundAmountRupees;
           const midSpan = colOrder.filter(k => visibleCols[k] && !['amountRupees','refundAmountRupees'].includes(k)).length;
           return (
             <tfoot className="sticky bottom-0 bg-white">
               <tr className="bg-gray-50 border-t">
                 <td className="p-2 font-semibold">Totals</td>
                 <td className="p-2 text-sm text-gray-600" colSpan={midSpan}>Selected: {selected.size} • Selected Refund: {formatCurrency(selectedRefund)}</td>
-                <td className="p-2 font-semibold">{formatCurrency(totalAmount)}</td>
-                <td className="p-2 font-semibold">{formatCurrency(totalRefund)}</td>
+                {showAmount && (<td className="p-2 font-semibold">{formatCurrency(totalAmount)}</td>)}
+                {showRefund && (<td className="p-2 font-semibold">{formatCurrency(totalRefund)}</td>)}
                 <td className="p-2"></td>
               </tr>
             </tfoot>
@@ -969,7 +1172,7 @@ export default function ReviewTable() {
           <div className="text-sm text-gray-700">Advance next step for {selected.size} selected review(s).</div>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-700">Date</label>
-            <input type="date" className="border p-1 rounded" value={bulkAdvanceDate} onChange={(e)=> setBulkAdvanceDate(e.target.value)} />
+            <input type="date" className="border p-1 rounded bg-white" value={bulkAdvanceDate} onChange={(e)=> setBulkAdvanceDate(e.target.value)} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button className="px-3 py-1 border rounded" onClick={()=> setBulkAdvanceOpen(false)}>Cancel</button>

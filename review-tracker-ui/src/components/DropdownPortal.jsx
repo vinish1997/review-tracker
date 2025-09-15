@@ -70,7 +70,15 @@ export default function DropdownPortal({ open, anchorRef, onClose, children, ali
 
   if (!open) return null
   return createPortal(
-    <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000, visibility: pos.visible ? 'visible' : 'hidden' }} className={`bg-white border shadow-lg rounded-md ${className}`} role="menu" aria-orientation="vertical">
+    <div
+      ref={menuRef}
+      style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000, visibility: pos.visible ? 'visible' : 'hidden' }}
+      className={`bg-white border shadow-lg rounded-md ${className}`}
+      role="menu"
+      aria-orientation="vertical"
+      onMouseDown={(e) => { e.stopPropagation(); }}
+      onClick={(e) => { e.stopPropagation(); }}
+    >
       {children}
     </div>,
     document.body

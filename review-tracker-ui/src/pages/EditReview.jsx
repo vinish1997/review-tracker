@@ -31,7 +31,7 @@ export default function EditReview() {
           </div>
         </div>
       ) : (
-        <div className="bg-white p-6 rounded-b-xl shadow">
+        <div className="bg-white p-6 rounded-b-xl shadow text-gray-900">
           <ReviewForm review={review} onSuccess={() => navigate("/reviews")} onCancel={()=> navigate(-1)} />
         </div>
       )}

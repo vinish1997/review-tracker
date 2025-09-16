@@ -66,7 +66,7 @@ export default function ReviewTable() {
   const [headElevated, setHeadElevated] = useState(false);
   const tableWrapRef = useRef(null);
   const [openRowMenu, setOpenRowMenu] = useState(null); // row id
-  const rowMenuRef = useRef(null);
+  const rowMenuAnchorRef = useRef(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const bulkRef = useRef(null);
   const bulkAnchorRef = useRef(null);
@@ -74,7 +74,6 @@ export default function ReviewTable() {
   const [bulkAdvanceDate, setBulkAdvanceDate] = useState(() => formatDate(new Date()));
   const [advancingRowId, setAdvancingRowId] = useState(null);
   const [advanceDate, setAdvanceDate] = useState(() => formatDate(new Date()));
-  const advanceAnchorRef = useRef(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef(null);
   const columnsAnchorRef = useRef(null);
@@ -86,6 +85,11 @@ export default function ReviewTable() {
   const viewsAnchorRef = useRef(null);
   const [views, setViews] = useState([]);
   useEffect(() => { (async ()=> { try { const res = await listViews(); setViews(res.data||[]); } catch { void 0; } })(); }, []);
+  const closeRowMenus = useCallback(() => {
+    setOpenRowMenu(null);
+    setAdvancingRowId(null);
+    rowMenuAnchorRef.current = null;
+  }, []);
   const defaultColOrder = ['orderId','productName','platformName','status','dealType','mediatorName','amountRupees','refundAmountRupees','orderedDate','deliveryDate','reviewSubmitDate','reviewAcceptedDate','ratingSubmittedDate','refundFormSubmittedDate','paymentReceivedDate'];
   const [colOrder, setColOrder] = useState(() => {
     try { const s = localStorage.getItem('review-col-order'); return s ? JSON.parse(s) : defaultColOrder.slice(); } catch { return defaultColOrder.slice(); }
@@ -257,6 +261,7 @@ export default function ReviewTable() {
   const topPad = virtualRows.length > 0 ? virtualRows[0].start : 0;
   const bottomPad = virtualRows.length > 0 ? totalSize - (virtualRows[virtualRows.length - 1].end) : 0;
   const visibleCountCols = colOrder.filter(k => visibleCols[k]).length + 2; // checkbox + actions
+  const dateColumns = ['orderedDate','deliveryDate','reviewSubmitDate','reviewAcceptedDate','ratingSubmittedDate','refundFormSubmittedDate','paymentReceivedDate'];
 
   function renderCell(key, r) {
     switch (key) {
@@ -275,7 +280,7 @@ export default function ReviewTable() {
           </div>
         );
       case 'productName':
-        return r.orderLink ? (<a href={r.orderLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{r.productName}</a>) : r.productName;
+        return r.productName;
       case 'platformName':
         return platformMap[r.platformId] || r.platformId;
       case 'orderedDate':
@@ -539,11 +544,10 @@ export default function ReviewTable() {
     })();
   }, [filtersOpen]);
 
-  // Focus the advance date input when the advance menu opens
+  // Reset advance date when the advance menu opens
   useEffect(() => {
     if (advancingRowId) {
       setAdvanceDate(formatDate(new Date()));
-      advanceAnchorRef.current?.focus?.();
     }
   }, [advancingRowId]);
 
@@ -603,7 +607,7 @@ export default function ReviewTable() {
         /* Body card */
         <div className="bg-white p-4 rounded-b-xl shadow text-gray-900">
         {/* Search and Toolbar (sticky) */}
-        <div className="sticky top-0 z-20 bg-white mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-gray-100 py-2">
+        <div className="md:sticky md:top-0 md:z-20 bg-white mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-gray-100 py-2">
           <div className="flex-1 min-w-56">
             <label className="block text-sm font-medium text-gray-700">Quick Search</label>
             <div className="flex gap-2 items-end flex-col sm:flex-row">
@@ -618,13 +622,13 @@ export default function ReviewTable() {
             {/* Mobile quick filters */}
             <div className="hidden" />
           </div>
-          <div className="flex flex-col gap-2 md:flex-row md:self-end">
-            <div className="relative" ref={filtersRef}>
-              <button ref={filtersAnchorRef} onClick={() => setFiltersOpen(o=>!o)} className="w-full sm:w-auto px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">Filters ▾</button>
+          <div className="flex flex-col gap-2 md:flex-row md:self-end w-full md:w-auto">
+            <div className="relative w-full md:w-auto" ref={filtersRef}>
+              <button ref={filtersAnchorRef} onClick={() => setFiltersOpen(o=>!o)} className="w-full md:w-auto px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">Filters ▾</button>
             </div>
-            <div className="flex gap-2 flex-row flex-wrap">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <div className="relative" ref={viewsRef}>
-                <button ref={viewsAnchorRef} onClick={()=> setViewsOpen(o=>!o)} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700 min-w-[110px]">Views ▾</button>
+                <button ref={viewsAnchorRef} onClick={()=> setViewsOpen(o=>!o)} className="flex-1 md:flex-none px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700 w-full md:w-auto md:min-w-[110px]">Views ▾</button>
               <DropdownPortal open={viewsOpen} anchorRef={viewsAnchorRef} onClose={()=> setViewsOpen(false)} preferred="down" align="right" className="w-64 max-w-[95vw] p-2 text-sm text-gray-800">
                   <div className="flex gap-2 mb-2 min-w-0">
                     <input type="text" placeholder="New view name" className="border p-1 rounded flex-1 min-w-0 bg-white text-gray-900" id="new-view-name" />
@@ -701,7 +705,7 @@ export default function ReviewTable() {
               </DropdownPortal>
             </div>
               <div className="relative" ref={bulkRef}>
-                <button ref={bulkAnchorRef} onClick={() => setBulkOpen(o=>!o)} className="px-3 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-500 min-w-[110px]">Bulk ▾</button>
+                <button ref={bulkAnchorRef} onClick={()=> setBulkOpen(o=>!o)} className="flex-1 md:flex-none px-3 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-500 w-full md:w-auto md:min-w-[110px]">Bulk ▾</button>
               <DropdownPortal open={bulkOpen} anchorRef={bulkAnchorRef} onClose={()=> setBulkOpen(false)} preferred="down" align="right" className="w-60 p-1 text-gray-800">
                 <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={() => { setBulkOpen(false); if (selected.size===0) { toast.show('Select rows first','error'); } else { setBulkAdvanceOpen(true); setBulkAdvanceDate(formatDate(new Date())); } }}>
                   <span className="w-4 h-4 inline-flex items-center justify-center">⏭</span>
@@ -727,7 +731,7 @@ export default function ReviewTable() {
               </DropdownPortal>
               </div>
               <div className="relative" ref={columnsRef}>
-                <button ref={columnsAnchorRef} onClick={()=> setColumnsOpen(o=>!o)} className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 inline-flex items-center gap-2 text-gray-700 min-w-[110px]"><AdjustmentsHorizontalIcon className="w-4 h-4"/>Cols ▾</button>
+                <button ref={columnsAnchorRef} onClick={()=> setColumnsOpen(o=>!o)} className="flex-1 md:flex-none px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 flex items-center justify-center gap-2 text-gray-700 w-full md:w-auto md:min-w-[110px]"><AdjustmentsHorizontalIcon className="w-4 h-4"/>Cols ▾</button>
                 <DropdownPortal open={columnsOpen} anchorRef={columnsAnchorRef} onClose={()=> setColumnsOpen(false)} preferred="down" align="right" className="w-56 p-2 text-sm text-gray-800">
                   {[
                     { key:'orderId', label:'Order ID' },
@@ -993,25 +997,26 @@ export default function ReviewTable() {
       {/* Table */}
       <div
         ref={tableWrapRef}
-        className="relative rounded shadow overflow-auto pb-16 md:pb-0"
+        className="relative rounded shadow overflow-auto pb-12 md:pb-0"
         style={{
           // Give the table its own scrollable area so sticky header/virtualization work reliably
           maxHeight: '70vh',
         }}
       >
       {headElevated && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-gray-300/40 to-transparent" />
+        <div className="hidden md:block pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-gray-300/40 to-transparent" />
       )}
       <table className="w-full border-collapse bg-white text-sm">
-        <thead className={`sticky top-0 z-10 ${headElevated ? 'shadow-md' : ''} text-gray-700`}>
-          <tr className="bg-gray-100/95 backdrop-blur text-left select-none">
+        <thead className={`text-gray-700 md:sticky md:top-0 md:z-10 ${headElevated ? 'md:shadow-md' : ''}`}>
+          <tr className="bg-gray-100 text-left select-none md:bg-gray-100/95 md:backdrop-blur">
             <th className="p-2 border"><input type="checkbox" aria-label="Select all" checked={selected.size>0 && selected.size===reviews.length} onChange={(e)=> toggleAll(e.target.checked)} /></th>
             {colOrder.filter(k => visibleCols[k]).map((key) => {
               const labels = { orderId:'Order ID', productName:'Product', platformName:'Platform', status:'Status', dealType:'Deal Type', mediatorName:'Mediator', amountRupees:'Amount', refundAmountRupees:'Refund', orderedDate:'Ordered', deliveryDate:'Delivery', reviewSubmitDate:'Review Submitted', reviewAcceptedDate:'Review Accepted', ratingSubmittedDate:'Rating Submitted', refundFormSubmittedDate:'Refund Form', paymentReceivedDate:'Payment Received' };
+              const isDateCol = dateColumns.includes(key);
               return (
                 <th
                   key={key}
-                  className="p-2 border cursor-pointer relative group"
+                  className={`p-2 border cursor-pointer relative group ${isDateCol ? 'whitespace-nowrap' : ''}`}
                   onClick={()=> toggleSort(key)}
                   title="Click to sort"
                   draggable
@@ -1059,24 +1064,42 @@ export default function ReviewTable() {
             return (
               <tr ref={rowVirtualizer.measureElement} key={r.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isOverdue(r) ? 'bg-red-50' : ''}`}>
                 <td className="p-2"><input type="checkbox" aria-label={`Select ${r.orderId}`} checked={selected.has(r.id)} onChange={(e)=> toggleOne(r.id, e.target.checked)} /></td>
-                {colOrder.filter(k => visibleCols[k]).map(key => (
-                  <td
-                    key={key}
-                    className={`p-2 ${key==='orderId' ? 'whitespace-nowrap' : ''} ${key==='status' ? 'text-center' : ''}`}
-                    style={{ width: colWidths[key] ? `${colWidths[key]}px` : undefined }}
-                  >{renderCell(key, r)}</td>
-                ))}
+                {colOrder.filter(k => visibleCols[k]).map(key => {
+                  const isDateCol = dateColumns.includes(key);
+                  return (
+                    <td
+                      key={key}
+                      className={`p-2 ${(key==='orderId' || isDateCol) ? 'whitespace-nowrap' : ''} ${key==='status' ? 'text-center' : ''}`}
+                      style={{ width: colWidths[key] ? `${colWidths[key]}px` : undefined }}
+                    >{renderCell(key, r)}</td>
+                  );
+                })}
                 <td className="p-2">
                   <div className="relative inline-block">
-                    <button ref={rowMenuRef} className="px-2 py-1 border rounded-md border-gray-300 bg-white hover:bg-gray-50" onClick={(e)=> { e.stopPropagation(); setOpenRowMenu(prev => prev===r.id ? null : r.id); }} aria-haspopup="menu" aria-expanded={openRowMenu===r.id}>
+                    <button
+                      className="px-2 py-1 border rounded-md border-gray-300 bg-white hover:bg-gray-50"
+                      onClick={(e)=> {
+                        e.stopPropagation();
+                        const sameRowOpen = openRowMenu === r.id || advancingRowId === r.id;
+                        if (sameRowOpen) {
+                          closeRowMenus();
+                        } else {
+                          rowMenuAnchorRef.current = e.currentTarget;
+                          setAdvancingRowId(null);
+                          setOpenRowMenu(r.id);
+                        }
+                      }}
+                      aria-haspopup="menu"
+                      aria-expanded={openRowMenu===r.id || advancingRowId===r.id}
+                    >
                       <EllipsisVerticalIcon className="w-5 h-5 text-gray-600"/>
                     </button>
-                    <DropdownPortal open={openRowMenu===r.id} anchorRef={rowMenuRef} onClose={()=> setOpenRowMenu(null)} preferred="up" align="right" className="w-44 overflow-hidden text-gray-800">
-                      <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={()=> { setOpenRowMenu(null); navigate(`/reviews/edit/${r.id}`); }}>
+                    <DropdownPortal open={openRowMenu===r.id} anchorRef={rowMenuAnchorRef} onClose={closeRowMenus} preferred="up" align="right" className="w-44 overflow-hidden text-gray-800">
+                      <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={()=> { closeRowMenus(); navigate(`/reviews/edit/${r.id}`); }}>
                         <PencilSquareIcon className="w-4 h-4"/>
                         <span>Edit</span>
                       </button>
-                      <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={()=> { setOpenRowMenu(null); duplicateRow(r); }}>
+                      <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 inline-flex items-center gap-2" onClick={()=> { closeRowMenus(); duplicateRow(r); }}>
                         <DocumentDuplicateIcon className="w-4 h-4"/>
                         <span>Duplicate</span>
                       </button>
@@ -1084,12 +1107,12 @@ export default function ReviewTable() {
                         <span className="w-4 h-4 inline-flex items-center justify-center">⏭</span>
                         <span>Advance next step…</span>
                       </button>
-                      <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600 inline-flex items-center gap-2" onClick={()=> { setOpenRowMenu(null); handleDelete(r.id); }}>
+                      <button className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600 inline-flex items-center gap-2" onClick={()=> { closeRowMenus(); handleDelete(r.id); }}>
                         <TrashIcon className="w-4 h-4"/>
                         <span>Delete</span>
                       </button>
                     </DropdownPortal>
-                    <DropdownPortal open={advancingRowId===r.id} anchorRef={rowMenuRef} onClose={()=> setAdvancingRowId(null)} preferred="up" align="right" className="w-60 p-2 text-gray-800">
+                    <DropdownPortal open={advancingRowId===r.id} anchorRef={rowMenuAnchorRef} onClose={closeRowMenus} preferred="up" align="right" className="w-60 p-2 text-gray-800">
                       {(() => {
                         const nf = nextFieldFor(r);
                         if (!nf) return <div className="px-2 py-1 text-sm">No further steps.</div>;
@@ -1109,6 +1132,7 @@ export default function ReviewTable() {
                                   await advanceReview(r.id, dateStr);
                                   toast.show('Advanced','success');
                                   setAdvancingRowId(null);
+                                  closeRowMenus();
                                   await loadReviews();
                                 } catch (err) { console.error(err); toast.show('Advance failed','error'); }
                               }}>Save</button>
@@ -1143,7 +1167,7 @@ export default function ReviewTable() {
           const showRefund = !!visibleCols.refundAmountRupees;
           const midSpan = colOrder.filter(k => visibleCols[k] && !['amountRupees','refundAmountRupees'].includes(k)).length;
           return (
-            <tfoot className="sticky bottom-0 bg-white">
+            <tfoot className="md:sticky md:bottom-0 bg-white">
               <tr className="bg-gray-50 border-t">
                 <td className="p-2 font-semibold">Totals</td>
                 <td className="p-2 text-sm text-gray-600" colSpan={midSpan}>Selected: {selected.size} • Selected Refund: {formatCurrency(selectedRefund)}</td>

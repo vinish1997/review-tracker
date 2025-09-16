@@ -101,6 +101,12 @@ public class ReviewService {
         return reviewRepo.aggregatedTotals(criteria);
     }
 
+    // ---------- Metrics (MVP) ----------
+    public long overdueCount() {
+        java.time.LocalDate threshold = java.time.LocalDate.now().minusDays(7);
+        return reviewRepo.countByDeliveryDateBeforeAndPaymentReceivedDateIsNull(threshold);
+    }
+
     // ---------- Advance ----------
     public Review advanceNext(String id, LocalDate date) {
         Review r = reviewRepo.findById(id).orElseThrow();
@@ -414,43 +420,7 @@ public class ReviewService {
         try { return java.time.LocalDate.parse(s.trim()); } catch (Exception e) { return null; }
     }
 
-    // ---------- Dashboard ----------
-    public Map<String, Object> dashboard(String scope, java.time.LocalDate from, java.time.LocalDate to) {
-        return reviewRepo.aggregatedDashboard(scope, from, to);
-    }
-
-    public Map<String, Object> amountsByPlatform() {
-        Map<String, Object> r = reviewRepo.amountByPlatform();
-        // Normalize keys to match previous dashboard shape when needed
-        Map<String, Object> out = new HashMap<>();
-        out.put("amountReceivedByPlatform", r.get("amountReceived"));
-        out.put("amountPendingByPlatform", r.get("amountPending"));
-        return out;
-    }
-
-    public Map<String, Object> amountsByMediator() {
-        Map<String, Object> r = reviewRepo.amountByMediator();
-        Map<String, Object> out = new HashMap<>();
-        out.put("amountReceivedByMediator", r.get("amountReceived"));
-        out.put("amountPendingByMediator", r.get("amountPending"));
-        return out;
-    }
-
-    public Map<String, Object> amountsByPlatform(String scope, java.time.LocalDate from, java.time.LocalDate to) {
-        Map<String, Object> r = reviewRepo.amountByPlatform(scope, from, to);
-        Map<String, Object> out = new HashMap<>();
-        out.put("amountReceivedByPlatform", r.get("amountReceived"));
-        out.put("amountPendingByPlatform", r.get("amountPending"));
-        return out;
-    }
-
-    public Map<String, Object> amountsByMediator(String scope, java.time.LocalDate from, java.time.LocalDate to) {
-        Map<String, Object> r = reviewRepo.amountByMediator(scope, from, to);
-        Map<String, Object> out = new HashMap<>();
-        out.put("amountReceivedByMediator", r.get("amountReceived"));
-        out.put("amountPendingByMediator", r.get("amountPending"));
-        return out;
-    }
+    // Dashboard and related stats removed for redesign
 
     private static long diffDays(java.time.LocalDate from, java.time.LocalDate to) {
         return java.time.temporal.ChronoUnit.DAYS.between(from, to);

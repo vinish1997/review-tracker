@@ -117,9 +117,9 @@ export default function Dashboard() {
             <button key={s} className={`px-2 py-0.5 border rounded capitalize ${scope===s?'bg-gray-100 border-gray-300':'border-transparent hover:bg-gray-50'}`} onClick={()=> setScope(s)}>{s}</button>
           ))}
           <span className="ml-2">From</span>
-          <input type="date" className="border rounded px-2 py-0.5" value={from} onChange={e=> setFrom(e.target.value)} />
+          <input type="date" className="border rounded px-2 py-0.5 bg-white text-gray-900" value={from} onChange={e=> setFrom(e.target.value)} />
           <span>To</span>
-          <input type="date" className="border rounded px-2 py-0.5" value={to} onChange={e=> setTo(e.target.value)} />
+          <input type="date" className="border rounded px-2 py-0.5 bg-white text-gray-900" value={to} onChange={e=> setTo(e.target.value)} />
           <button className="px-2 py-0.5 border rounded hover:bg-gray-50" onClick={()=> { setFrom(''); setTo(''); }}>Clear</button>
         </div>
         <div className="text-xs text-gray-600 inline-flex items-center gap-1">

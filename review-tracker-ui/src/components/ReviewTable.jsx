@@ -63,6 +63,7 @@ export default function ReviewTable() {
   const [dateRangeFrom, setDateRangeFrom] = useState(null); // Date | null
   const [dateRangeTo, setDateRangeTo] = useState(null); // Date | null
   const [dateRangeDraft, setDateRangeDraft] = useState({ from: null, to: null });
+  const [openDatePicker, setOpenDatePicker] = useState(null); // 'from' | 'to' | null
   const [headElevated, setHeadElevated] = useState(false);
   const tableWrapRef = useRef(null);
   const [openRowMenu, setOpenRowMenu] = useState(null); // row id
@@ -79,6 +80,10 @@ export default function ReviewTable() {
   const columnsAnchorRef = useRef(null);
   // Filters popover state
   const [activeFilter, setActiveFilter] = useState('presets'); // 'presets' | 'platform' | 'status' | 'deal' | 'mediator'
+
+  useEffect(() => {
+    if (!filtersOpen) setOpenDatePicker(null);
+  }, [filtersOpen]);
   // Saved views
   const [viewsOpen, setViewsOpen] = useState(false);
   const viewsRef = useRef(null);
@@ -125,6 +130,8 @@ export default function ReviewTable() {
     if (!q) return mediators;
     return mediators.filter(m => (m.name||'').toLowerCase().includes(q) || (m.phone||'').toLowerCase().includes(q));
   }, [mediators, mediatorQuery]);
+  const fromDraftDate = dateRangeDraft.from ? new Date(dateRangeDraft.from) : null;
+  const toDraftDate = dateRangeDraft.to ? new Date(dateRangeDraft.to) : null;
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -818,23 +825,23 @@ export default function ReviewTable() {
           <div className="md:grid md:grid-cols-12 gap-4">
             <div className="md:col-span-4">
               <div className="flex gap-2 md:flex-col overflow-x-auto no-scrollbar">
-                <button type="button" onClick={()=> setActiveFilter('presets')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='presets' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                <button type="button" title="Quick presets" onClick={()=> setActiveFilter('presets')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='presets' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
                   <SparklesIcon className="w-4 h-4"/>
                   <span className="hidden sm:inline">Quick Presets</span>
                 </button>
-                <button type="button" onClick={()=> setActiveFilter('platform')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='platform' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                <button type="button" title="Filter by platform" onClick={()=> setActiveFilter('platform')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='platform' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
                   <Squares2X2Icon className="w-4 h-4"/>
                   <span className="hidden sm:inline">Platform</span>
                 </button>
-                <button type="button" onClick={()=> setActiveFilter('status')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='status' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                <button type="button" title="Filter by status" onClick={()=> setActiveFilter('status')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='status' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
                   <ListBulletIcon className="w-4 h-4"/>
                   <span className="hidden sm:inline">Status</span>
                 </button>
-                <button type="button" onClick={()=> setActiveFilter('deal')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='deal' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                <button type="button" title="Filter by deal type" onClick={()=> setActiveFilter('deal')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='deal' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
                   <TagIcon className="w-4 h-4"/>
                   <span className="hidden sm:inline">Deal Type</span>
                 </button>
-                <button type="button" onClick={()=> setActiveFilter('mediator')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='mediator' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                <button type="button" title="Filter by mediator" onClick={()=> setActiveFilter('mediator')} className={`w-full text-left px-3 py-2 border rounded inline-flex items-center gap-2 ${activeFilter==='mediator' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
                   <UserGroupIcon className="w-4 h-4"/>
                   <span className="hidden sm:inline">Mediator</span>
                 </button>
@@ -847,27 +854,76 @@ export default function ReviewTable() {
                   <div className="font-medium mb-2">Quick Presets</div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft(null); setDateRangeDraft({from:null,to:null}); }}>Clear presets</button>
-                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${overdueDraft ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(true); setDatePresetDraft(null); }}>Overdue Since Delivery</button>
-                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${datePresetDraft==='delivered7' ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered7'); setDateRangeDraft({from:null,to:null}); }}>Delivered last 7 days</button>
-                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${datePresetDraft==='delivered30' ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered30'); }}>Delivered last 30 days</button>
-                    <button type="button" className={`px-2 py-1 border rounded hover:bg-gray-50 ${datePresetDraft==='delivered90' ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-700'}`} onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered90'); setDateRangeDraft({from:null,to:null}); }}>Delivered last 90 days</button>
-                    <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses(['ordered','delivered']); setOverdueDraft(false); setDatePresetDraft(null); }}>Pending Review/Rating</button>
-                    <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses(['review submitted','review accepted','rating submitted']); setOverdueDraft(false); setDatePresetDraft(null); }}>Pending Refund Form</button>
-                    <button type="button" className="px-2 py-1 border rounded hover:bg-gray-50 text-gray-700" onClick={()=> { setFStatuses(['refund form submitted']); setOverdueDraft(false); setDatePresetDraft(null); }}>Pending Payment</button>
+                    <button
+                      type="button"
+                      className={`px-2 py-1 border rounded transition-colors ${overdueDraft ? 'bg-indigo-100 text-indigo-700 border-indigo-300 hover:bg-indigo-200' : 'text-gray-700 hover:bg-gray-50'}`}
+                      onClick={()=> { setFStatuses([]); setOverdueDraft(true); setDatePresetDraft(null); }}
+                    >Overdue Since Delivery</button>
+                    <button
+                      type="button"
+                      className={`px-2 py-1 border rounded transition-colors ${datePresetDraft==='delivered7' ? 'bg-indigo-100 text-indigo-700 border-indigo-300 hover:bg-indigo-200' : 'text-gray-700 hover:bg-gray-50'}`}
+                      onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered7'); setDateRangeDraft({from:null,to:null}); }}
+                    >Delivered last 7 days</button>
+                    <button
+                      type="button"
+                      className={`px-2 py-1 border rounded transition-colors ${datePresetDraft==='delivered30' ? 'bg-indigo-100 text-indigo-700 border-indigo-300 hover:bg-indigo-200' : 'text-gray-700 hover:bg-gray-50'}`}
+                      onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered30'); }}
+                    >Delivered last 30 days</button>
+                    <button
+                      type="button"
+                      className={`px-2 py-1 border rounded transition-colors ${datePresetDraft==='delivered90' ? 'bg-indigo-100 text-indigo-700 border-indigo-300 hover:bg-indigo-200' : 'text-gray-700 hover:bg-gray-50'}`}
+                      onClick={()=> { setFStatuses([]); setOverdueDraft(false); setDatePresetDraft('delivered90'); setDateRangeDraft({from:null,to:null}); }}
+                    >Delivered last 90 days</button>
+                    <button
+                      type="button"
+                      className="px-2 py-1 border rounded text-gray-700 transition-colors hover:bg-gray-50"
+                      onClick={()=> { setFStatuses(['ordered','delivered']); setOverdueDraft(false); setDatePresetDraft(null); }}
+                    >Pending Review/Rating</button>
+                    <button
+                      type="button"
+                      className="px-2 py-1 border rounded text-gray-700 transition-colors hover:bg-gray-50"
+                      onClick={()=> { setFStatuses(['review submitted','review accepted','rating submitted']); setOverdueDraft(false); setDatePresetDraft(null); }}
+                    >Pending Refund Form</button>
+                    <button
+                      type="button"
+                      className="px-2 py-1 border rounded text-gray-700 transition-colors hover:bg-gray-50"
+                      onClick={()=> { setFStatuses(['refund form submitted']); setOverdueDraft(false); setDatePresetDraft(null); }}
+                    >Pending Payment</button>
                   </div>
                   <div className="mt-3">
                     <div className="text-sm font-medium mb-1">Custom delivery date range</div>
                     <div className="flex items-center gap-2">
                       <DatePicker
-                        selected={dateRangeDraft.from ? new Date(dateRangeDraft.from) : null}
-                        onChange={(d)=> { setDateRangeDraft(prev => ({ ...prev, from: d })); setDatePresetDraft('range'); setOverdueDraft(false); }}
+                        selected={fromDraftDate}
+                        startDate={fromDraftDate}
+                        endDate={toDraftDate}
+                        selectsStart
+                        open={openDatePicker === 'from'}
+                        onInputClick={()=> setOpenDatePicker((prev)=> prev === 'from' ? null : 'from')}
+                        onFocus={()=> setOpenDatePicker('from')}
+                        onChange={(d)=> { setDateRangeDraft(prev => ({ ...prev, from: d || null })); setDatePresetDraft('range'); setOverdueDraft(false); setOpenDatePicker(null); }}
+                        onCalendarClose={()=> setOpenDatePicker(null)}
+                        onClickOutside={()=> setOpenDatePicker(null)}
+                        onKeyDown={(e)=> { if (e.key === 'Escape') setOpenDatePicker(null); }}
+                        shouldCloseOnSelect
                         placeholderText="From"
                         className="border p-1 rounded bg-white text-gray-900"
                       />
                       <span className="text-gray-500">to</span>
                       <DatePicker
-                        selected={dateRangeDraft.to ? new Date(dateRangeDraft.to) : null}
-                        onChange={(d)=> { setDateRangeDraft(prev => ({ ...prev, to: d })); setDatePresetDraft('range'); setOverdueDraft(false); }}
+                        selected={toDraftDate}
+                        startDate={fromDraftDate}
+                        endDate={toDraftDate}
+                        selectsEnd
+                        minDate={fromDraftDate || undefined}
+                        open={openDatePicker === 'to'}
+                        onInputClick={()=> setOpenDatePicker((prev)=> prev === 'to' ? null : 'to')}
+                        onFocus={()=> setOpenDatePicker('to')}
+                        onChange={(d)=> { setDateRangeDraft(prev => ({ ...prev, to: d || null })); setDatePresetDraft('range'); setOverdueDraft(false); setOpenDatePicker(null); }}
+                        onCalendarClose={()=> setOpenDatePicker(null)}
+                        onClickOutside={()=> setOpenDatePicker(null)}
+                        onKeyDown={(e)=> { if (e.key === 'Escape') setOpenDatePicker(null); }}
+                        shouldCloseOnSelect
                         placeholderText="To"
                         className="border p-1 rounded bg-white text-gray-900"
                       />
@@ -963,10 +1019,19 @@ export default function ReviewTable() {
               
             </div>
           </div>
-          <div className="mt-3 flex flex-col sm:flex-row gap-2">
-            <button onClick={()=> { setAPlatformIds(fPlatformIds); setAMediatorIds(fMediatorIds); setAStatuses(fStatuses); setADealTypes(fDealTypes); setOverdueOnly(overdueDraft); setDatePreset(datePresetDraft); setDateRangeFrom(dateRangeDraft.from || null); setDateRangeTo(dateRangeDraft.to || null); setPage(0); loadReviews(); setFiltersOpen(false); }} className="w-full sm:w-auto px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">Apply Filters</button>
-            <button onClick={()=> setConfirm({ open:true, title:'Clear Filters', message:'Clear all selected filters?', onConfirm:()=> { setFPlatformIds([]); setFMediatorIds([]); setFStatuses([]); setFDealTypes([]); } })} className="w-full sm:w-auto px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">Clear Filters</button>
-            <button onClick={saveFilters} className="w-full sm:w-auto px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700">Save Filters</button>
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-2 sm:justify-start">
+            <button
+              onClick={()=> { setAPlatformIds(fPlatformIds); setAMediatorIds(fMediatorIds); setAStatuses(fStatuses); setADealTypes(fDealTypes); setOverdueOnly(overdueDraft); setDatePreset(datePresetDraft); setDateRangeFrom(dateRangeDraft.from || null); setDateRangeTo(dateRangeDraft.to || null); setPage(0); loadReviews(); setFiltersOpen(false); }}
+              className="flex-none rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 sm:px-4 sm:py-2 sm:text-sm"
+            >Apply</button>
+            <button
+              onClick={()=> setConfirm({ open:true, title:'Clear Filters', message:'Clear all selected filters?', onConfirm:()=> { setFPlatformIds([]); setFMediatorIds([]); setFStatuses([]); setFDealTypes([]); } })}
+              className="flex-none rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:px-4 sm:py-2 sm:text-sm"
+            >Clear</button>
+            <button
+              onClick={saveFilters}
+              className="flex-none rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:px-4 sm:py-2 sm:text-sm"
+            >Save</button>
           </div>
         </div>
       </DropdownPortal>
@@ -1185,7 +1250,7 @@ export default function ReviewTable() {
       {/* Keyboard shortcuts */}
       <Shortcuts onAdvance={()=> { if (selected.size>0) setBulkAdvanceOpen(true); }} onFocusSearch={()=> document.getElementById('quick-search-input')?.focus()} onDelete={()=> doBulkDelete()} />
       <Modal open={!!confirmId} title="Delete Review" onClose={()=> setConfirmId(null)}>
-        <p className="mb-4">Are you sure you want to delete this review?</p>
+        <p className="mb-4 text-gray-700">Are you sure you want to delete this review?</p>
         <div className="flex justify-end gap-2">
           <button className="px-3 py-1 border rounded" onClick={()=> setConfirmId(null)}>Cancel</button>
           <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={doDelete}>Delete</button>
@@ -1196,7 +1261,7 @@ export default function ReviewTable() {
           <div className="text-sm text-gray-700">Advance next step for {selected.size} selected review(s).</div>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-700">Date</label>
-            <input type="date" className="border p-1 rounded bg-white" value={bulkAdvanceDate} onChange={(e)=> setBulkAdvanceDate(e.target.value)} />
+            <input type="date" className="border p-1 rounded bg-white text-gray-900" value={bulkAdvanceDate} onChange={(e)=> setBulkAdvanceDate(e.target.value)} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button className="px-3 py-1 border rounded" onClick={()=> setBulkAdvanceOpen(false)}>Cancel</button>
@@ -1214,7 +1279,7 @@ export default function ReviewTable() {
         </div>
       </Modal>
       <Modal open={confirm.open} title={confirm.title} onClose={()=> setConfirm({ open:false, title:'', message:'', onConfirm:null })}>
-        <p className="mb-4">{confirm.message}</p>
+        <p className="mb-4 text-gray-700">{confirm.message}</p>
         <div className="flex justify-end gap-2">
           <button className="px-3 py-1 border rounded" onClick={()=> setConfirm({ open:false, title:'', message:'', onConfirm:null })}>Cancel</button>
           <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={()=> { const cb = confirm.onConfirm; setConfirm({ open:false, title:'', message:'', onConfirm:null }); cb?.(); }}>Confirm</button>

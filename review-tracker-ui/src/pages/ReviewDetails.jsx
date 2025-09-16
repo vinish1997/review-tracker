@@ -129,7 +129,7 @@ export default function ReviewDetails() {
                   <div className="bg-white p-4 rounded shadow flex items-end gap-3">
                     <div>
                       <div className="text-sm text-gray-600">Advance: {nf.replace(/([A-Z])/g,' $1')}</div>
-                      <input type="date" className="border p-2 rounded" value={nextDate ? new Date(nextDate).toISOString().slice(0,10) : ''} onChange={(e)=> setNextDate(e.target.value ? new Date(e.target.value) : null)} />
+                      <input type="date" className="border p-2 rounded bg-white text-gray-900" value={nextDate ? new Date(nextDate).toISOString().slice(0,10) : ''} onChange={(e)=> setNextDate(e.target.value ? new Date(e.target.value) : null)} />
                     </div>
                     <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={saveNext} disabled={!nextDate}>Save</button>
                   </div>

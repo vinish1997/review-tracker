@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface ReviewRepository extends ReviewRepositoryCustom, MongoRepository<Review, String> {
     Optional<Review> findByOrderId(String orderId);
     boolean existsByOrderId(String orderId);
+    long countByDeliveryDateBeforeAndPaymentReceivedDateIsNull(java.time.LocalDate date);
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
 import { useState } from "react";
 import ToastProvider from "./components/ToastProvider";
 import Dashboard from "./pages/Dashboard";
@@ -41,7 +41,7 @@ function App() {
                   ✕
                 </button>
               </div>
-              <Link to="/" className="block hover:text-gray-300" onClick={() => setMobileNavOpen(false)}>Dashboard</Link>
+              <Link to="/dashboard" className="block hover:text-gray-300" onClick={() => setMobileNavOpen(false)}>Dashboard</Link>
               <Link to="/reviews" className="block hover:text-gray-300" onClick={() => setMobileNavOpen(false)}>Reviews</Link>
               <Link to="/lookups" className="block hover:text-gray-300" onClick={() => setMobileNavOpen(false)}>Lookups</Link>
               <Link to="/archive" className="block hover:text-gray-300" onClick={() => setMobileNavOpen(false)}>Archive</Link>
@@ -53,7 +53,7 @@ function App() {
           {/* Sidebar (desktop) */}
           <nav className="hidden md:block w-60 bg-gray-800 text-white p-4 space-y-4">
             <h1 className="text-xl font-bold">Review Tracker</h1>
-            <Link to="/" className="block hover:text-gray-300">Dashboard</Link>
+            <Link to="/dashboard" className="block hover:text-gray-300">Dashboard</Link>
             <Link to="/reviews" className="block hover:text-gray-300">Reviews</Link>
             <Link to="/lookups" className="block hover:text-gray-300">Lookups</Link>
             <Link to="/archive" className="block hover:text-gray-300">Archive</Link>
@@ -62,7 +62,8 @@ function App() {
           {/* Main Content */}
           <main className="flex-1 p-4 md:p-6 md:overflow-y-auto pt-12 md:pt-0">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/reviews/*" element={<Reviews />} />
               <Route path="/lookups" element={<Lookups />} />
               <Route path="/archive" element={<Archive />} />

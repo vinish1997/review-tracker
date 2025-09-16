@@ -37,7 +37,6 @@ class ReviewControllerE2ETest {
     void fullReviewFlow() {
         // create lookup entities
         Platform platform = restTemplate.postForObject("/api/lookups/platforms", new Platform(null, "Amazon"), Platform.class);
-        Status status = restTemplate.postForObject("/api/lookups/statuses", new Status(null, "Pending"), Status.class);
         Mediator mediator = restTemplate.postForObject("/api/lookups/mediators", new Mediator(null, "John"), Mediator.class);
 
         // create review
@@ -45,7 +44,7 @@ class ReviewControllerE2ETest {
                 .orderId("O1")
                 .productName("Widget")
                 .platformId(platform.getId())
-                .statusId(status.getId())
+                // status is computed; no statusId field
                 .mediatorId(mediator.getId())
                 .amountRupees(new BigDecimal("100"))
                 .lessRupees(new BigDecimal("10"))
@@ -77,7 +76,7 @@ class ReviewControllerE2ETest {
                 .orderId("O2")
                 .productName("Gadget")
                 .platformId(platform.getId())
-                .statusId(status.getId())
+                // status is computed; no statusId field
                 .mediatorId(mediator.getId())
                 .amountRupees(new BigDecimal("50"))
                 .lessRupees(new BigDecimal("5"))
@@ -92,7 +91,8 @@ class ReviewControllerE2ETest {
         // bulk update
         Map<String, Object> bulkBody = new HashMap<>();
         bulkBody.put("ids", List.of(created1.getId(), created2.getId()));
-        bulkBody.put("updates", Map.of("statusId", status.getId()));
+        // update example: set mediatorId to same mediator
+        bulkBody.put("updates", Map.of("mediatorId", mediator.getId()));
         Review[] bulkUpdated = restTemplate.postForObject("/api/reviews/bulk-update", bulkBody, Review[].class);
         assertThat(bulkUpdated).hasSize(2);
 
@@ -120,9 +120,7 @@ class ReviewControllerE2ETest {
         ResponseEntity<Review[]> importResp = restTemplate.postForEntity("/api/reviews/import", importReq, Review[].class);
         assertThat(importResp.getBody()).hasSize(1);
 
-        // dashboard
-        Map dashboard = restTemplate.getForObject("/api/reviews/dashboard", Map.class);
-        assertThat((Integer) dashboard.get("totalReviews")).isGreaterThanOrEqualTo(3);
+        // dashboard removed in redesign; skip dashboard assertions
 
         // bulk delete
         HttpEntity<List<String>> deleteReq = new HttpEntity<>(List.of(created1.getId(), created2.getId(), clone.getId()));
@@ -131,4 +129,3 @@ class ReviewControllerE2ETest {
         assertThat(remaining.length).isGreaterThanOrEqualTo(1);
     }
 }
-

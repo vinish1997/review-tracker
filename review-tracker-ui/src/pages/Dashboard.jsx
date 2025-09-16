@@ -38,8 +38,9 @@ export default function Dashboard() {
           pendingPayment: Number(c3.data?.totalElements ?? 0),
           overdue: Number(oc.data?.overdue ?? 0),
         });
-      } catch (e) {
+      } catch (err) {
         // Soft-fail: keep UI visible with zeros
+        console.error('Failed to load dashboard metrics', err);
         setCounts({ pendingReviewRating: null, pendingRefundForm: null, pendingPayment: null, overdue: null });
       }
       setLoading(false);

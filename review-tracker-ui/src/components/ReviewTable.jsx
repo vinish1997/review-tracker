@@ -82,6 +82,7 @@ export default function ReviewTable() {
   // Filters popover state
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState('presets'); // 'presets' | 'platform' | 'status' | 'deal' | 'mediator'
+  const [lightbox, setLightbox] = useState(null);
 
   useEffect(() => {
     if (!filtersOpen) setOpenDatePicker(null);
@@ -210,7 +211,7 @@ export default function ReviewTable() {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  }, [aSearch, aPlatformIds, aMediatorIds, sortField, sortDir, page, size, aQuickMode, aStatuses, aDealTypes, statusInPreset, overdueOnly, datePreset, dateRangeFrom, dateRangeTo]);
+  }, [aSearch, aPlatformIds, aMediatorIds, sortField, sortDir, page, size, aQuickMode, aStatuses, aDealTypes, statusInPreset, overdueOnly, datePreset, dateRangeFrom, dateRangeTo, hasRefundFormUrlInPreset]);
 
   // Read optional dashboard preset and apply multi-status filters
   useEffect(() => {
@@ -585,6 +586,7 @@ export default function ReviewTable() {
         if (!mediators.length) { const m = await getMediators(); setMediators(m.data || []); }
       } catch { /* ignore */ }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersOpen]);
 
   // Reset advance date when the advance menu opens

@@ -9,7 +9,7 @@ import { getPlatforms, getMediators } from "../api/lookups";
 
 export default function ReviewForm({ review, initialValues, onSuccess, onCancel }) {
   const toast = useToast();
-  const defaultValues = {
+  const defaultValues = useMemo(() => ({
     orderId: "",
     orderLink: "",
     productName: "",
@@ -26,7 +26,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     paymentReceivedDate: null,
     refundFormUrl: "",
     imageUrl: ""
-  };
+  }), []);
   const { register, handleSubmit, control, watch, formState: { errors }, reset, setValue } = useForm({
     mode: 'onChange',
     reValidateMode: 'onChange',
@@ -179,7 +179,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
         dealType: review.dealType ?? "",
       });
     }
-  }, [review, lookupsReady, reset]);
+  }, [review, lookupsReady, reset, defaultValues]);
 
   const onSubmit = async (data, opts = {}) => {
     // Ensure refund is computed as amount - less when submitting (less defaults to 0)

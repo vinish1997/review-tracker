@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
-import { useState } from "react";
 import ToastProvider from "./components/ToastProvider";
 import BottomNav from "./components/BottomNav";
 import FAB from "./components/FAB";

@@ -2,7 +2,8 @@ import { useForm, Controller } from "react-hook-form";
 import DatePicker from "react-datepicker";
 import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { createReview, updateReview } from "../api/reviews";
+import { createReview, updateReview, uploadImage } from "../api/reviews";
+import { PhotoIcon } from "@heroicons/react/24/outline";
 import useToast from "./useToast";
 import { getPlatforms, getMediators } from "../api/lookups";
 
@@ -19,8 +20,12 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     orderedDate: null,
     deliveryDate: null,
     reviewSubmitDate: null,
+    reviewAcceptedDate: null,
+    ratingSubmittedDate: null,
     refundFormSubmittedDate: null,
-    paymentReceivedDate: null
+    paymentReceivedDate: null,
+    refundFormUrl: "",
+    imageUrl: ""
   };
   const { register, handleSubmit, control, watch, formState: { errors }, reset, setValue } = useForm({
     mode: 'onChange',
@@ -34,29 +39,31 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
   const [stayAfterSave, setStayAfterSave] = useState(false);
   const [saveAsNew, setSaveAsNew] = useState(false);
   const firstFieldRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const imageUrl = watch("imageUrl");
 
   useEffect(() => {
-  async function fetchLookups() {
-    try {
-      const [pRes, mRes] = await Promise.all([
-        getPlatforms(),
-        getMediators(),
-        
-      ]);
-      setPlatforms(pRes.data);
-      setMediators(mRes.data);
-      // statuses removed
-      setLookupsReady(true);
-    } catch (err) {
-      console.error("Lookup fetch failed", err);
+    async function fetchLookups() {
+      try {
+        const [pRes, mRes] = await Promise.all([
+          getPlatforms(),
+          getMediators(),
+
+        ]);
+        setPlatforms(pRes.data);
+        setMediators(mRes.data);
+        // statuses removed
+        setLookupsReady(true);
+      } catch (err) {
+        console.error("Lookup fetch failed", err);
+      }
     }
-  }
-  fetchLookups();
-}, []);
+    fetchLookups();
+  }, []);
 
   // Global ESC to cancel
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && onCancel) { toast.show('Cancelled','info'); onCancel(); } };
+    const onKey = (e) => { if (e.key === 'Escape' && onCancel) { toast.show('Cancelled', 'info'); onCancel(); } };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onCancel, toast]);
@@ -165,6 +172,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     if (review && lookupsReady) {
       // Only reset the fields that can be affected by lookups
       reset({
+        ...defaultValues,
         ...review,
         platformId: review.platformId ?? "",
         mediatorId: review.mediatorId ?? "",
@@ -220,12 +228,12 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
 
   const fmtDate = (v) => {
     if (!v) return "-";
-    if (typeof v === 'string' && v.length >= 10) return v.slice(0,10);
-    try { return new Date(v).toISOString().slice(0,10); } catch { return String(v); }
+    if (typeof v === 'string' && v.length >= 10) return v.slice(0, 10);
+    try { return new Date(v).toISOString().slice(0, 10); } catch { return String(v); }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" onKeyDown={(e)=> { if (e.key === 'Escape' && onCancel) { e.preventDefault(); toast.show('Cancelled','info'); onCancel(); } }}>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" onKeyDown={(e) => { if (e.key === 'Escape' && onCancel) { e.preventDefault(); toast.show('Cancelled', 'info'); onCancel(); } }}>
       {/* Order ID */}
       <div>
         <label className="block text-sm font-medium text-gray-700">Order ID</label>
@@ -246,7 +254,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       <div>
         <label className="block text-sm font-medium text-gray-700">Order Link</label>
         <input {...register("orderLink", { required: true, pattern: /^https?:\/\/.+$/ })}
-               className={`w-full rounded-md border ${errors.orderLink ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}/>
+          className={`w-full rounded-md border ${errors.orderLink ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} />
         {errors.orderLink && <span className="text-red-500 text-sm">Valid URL required.</span>}
       </div>
 
@@ -260,6 +268,73 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
         {errors.productName && (
           <span className="text-red-500 text-sm">{errors.productName.message}</span>
         )}
+      </div>
+
+      {/* Refund Form URL */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Refund Form URL</label>
+        <input {...register("refundFormUrl", { pattern: /^https?:\/\/.+$/ })}
+          placeholder="Link to order-specific refund form"
+          className={`w-full rounded-md border ${errors.refundFormUrl ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} />
+        {errors.refundFormUrl && <span className="text-red-500 text-sm">Valid URL required (https://...).</span>}
+      </div>
+
+      {/* Product Image Upload */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Product Image / Screenshot</label>
+        <div className="flex items-center gap-4">
+          <div className="relative w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden group">
+            {imageUrl ? (
+              <>
+                <img src={imageUrl.startsWith('http') ? imageUrl : `${(import.meta?.env?.VITE_API_BASE || "").replace(/\/$/, "")}${imageUrl}`} alt="Preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setValue("imageUrl", "", { shouldDirty: true })}
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                >
+                  <XMarkIcon className="w-6 h-6 text-white" />
+                </button>
+              </>
+            ) : (
+              <PhotoIcon className="w-8 h-8 text-gray-400" />
+            )}
+            {uploading && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              id="product-image-upload"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploading(true);
+                try {
+                  const res = await uploadImage(file);
+                  setValue("imageUrl", res.data.url, { shouldDirty: true });
+                  toast.show("Image uploaded", "success");
+                } catch (err) {
+                  console.error(err);
+                  toast.show("Upload failed", "error");
+                } finally {
+                  setUploading(false);
+                }
+              }}
+            />
+            <label
+              htmlFor="product-image-upload"
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              {imageUrl ? "Change Image" : "Upload Image"}
+            </label>
+            <p className="mt-1 text-xs text-gray-500">PNG, JPG up to 5MB</p>
+          </div>
+        </div>
       </div>
 
       {/* Deal Type & Dropdowns */}
@@ -350,13 +425,13 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
       {/* Status + Refund preview */}
       <div className="flex items-center justify-between text-sm">
         <div>Current status: <span className="font-medium capitalize">{statusPreview}</span></div>
-        <button type="button" onClick={()=> { if (!dealType) { toast.show('Select Deal Type first','error'); return; } advanceStatus(); }} disabled={!dealType} className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50">Advance status</button>
+        <button type="button" onClick={() => { if (!dealType) { toast.show('Select Deal Type first', 'error'); return; } advanceStatus(); }} disabled={!dealType} className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50">Advance status</button>
       </div>
       <div className="text-xs text-gray-500 mt-1">
         Flow: {dealType === 'REVIEW_PUBLISHED' ? 'Ordered → Delivered → Review Submitted → Review Accepted → Refund Form Submitted → Payment Received'
           : dealType === 'RATING_ONLY' ? 'Ordered → Delivered → Rating Submitted → Refund Form Submitted → Payment Received'
-          : dealType === 'REVIEW_SUBMISSION' ? 'Ordered → Delivered → Review Submitted → Refund Form Submitted → Payment Received'
-          : 'Select a Deal Type to view steps'}
+            : dealType === 'REVIEW_SUBMISSION' ? 'Ordered → Delivered → Review Submitted → Refund Form Submitted → Payment Received'
+              : 'Select a Deal Type to view steps'}
         <div>Tip: Advance sets the next missing date to today.</div>
       </div>
       <div className={`text-sm ${refundPreview < 0 ? 'text-red-600' : 'text-gray-600'}`}>
@@ -375,11 +450,11 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
                   <div className="font-medium">{fmtDate(val)}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button type="button" onClick={()=> setEditStep(step)} className="text-gray-700 hover:text-gray-900" title="Edit">
-                    <PencilSquareIcon className="w-4 h-4"/>
+                  <button type="button" onClick={() => setEditStep(step)} className="text-gray-700 hover:text-gray-900" title="Edit">
+                    <PencilSquareIcon className="w-4 h-4" />
                   </button>
-                  <button type="button" onClick={()=> resetFrom(step)} className="text-blue-600 hover:text-blue-800" title="Reset from here">
-                    <ArrowPathIcon className="w-4 h-4"/>
+                  <button type="button" onClick={() => resetFrom(step)} className="text-blue-600 hover:text-blue-800" title="Reset from here">
+                    <ArrowPathIcon className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -394,12 +469,12 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
                     className="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     selected={field.value}
                     disabled={!dealType}
-                    onChange={(d)=> {
+                    onChange={(d) => {
                       // Enforce chronological order: date >= previous step's date
-                      const prevKey = stepSequence[idx-1];
-                      const prevVal = idx>0 ? valueOf(prevKey) : null;
+                      const prevKey = stepSequence[idx - 1];
+                      const prevVal = idx > 0 ? valueOf(prevKey) : null;
                       if (prevVal && d && new Date(d).getTime() < new Date(prevVal).getTime()) {
-                        toast.show('Date must be same or later than previous step','error');
+                        toast.show('Date must be same or later than previous step', 'error');
                         return;
                       }
                       field.onChange(d);
@@ -408,7 +483,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
                     }}
                     dateFormat="yyyy-MM-dd"
                   />
-                )}/>
+                )} />
               </div>
             );
           }
@@ -424,7 +499,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
         <button
           type="button"
           className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
-          onClick={handleSubmit((form)=> onSubmit(form, { stay: true, asNew: !!review }))}
+          onClick={handleSubmit((form) => onSubmit(form, { stay: true, asNew: !!review }))}
         >
           Save & Add Another
         </button>
@@ -469,9 +544,9 @@ function MediatorSelect({ value, onChange, items, error }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items || [];
-    return (items||[]).filter(m => (m.name||'').toLowerCase().includes(q) || (m.phone||'').toLowerCase().includes(q));
+    return (items || []).filter(m => (m.name || '').toLowerCase().includes(q) || (m.phone || '').toLowerCase().includes(q));
   }, [items, query]);
-  const selected = (items||[]).find(m => m.id === value);
+  const selected = (items || []).find(m => m.id === value);
   useEffect(() => {
     // keep active within range
     if (active < 0) setActive(0);
@@ -496,10 +571,10 @@ function MediatorSelect({ value, onChange, items, error }) {
       return;
     }
     if (!open) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(filtered.length-1, a+1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a-1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(filtered.length - 1, a + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a - 1)); }
     else if (e.key === 'Home') { e.preventDefault(); setActive(0); }
-    else if (e.key === 'End') { e.preventDefault(); setActive(Math.max(0, filtered.length-1)); }
+    else if (e.key === 'End') { e.preventDefault(); setActive(Math.max(0, filtered.length - 1)); }
     else if (e.key === 'Enter') {
       e.preventDefault();
       const pick = filtered[active]; if (pick) { onChange(pick.id); setOpen(false); }
@@ -509,26 +584,26 @@ function MediatorSelect({ value, onChange, items, error }) {
     <div className="relative" ref={ref}>
       <button type="button" className={`w-full rounded-md border ${error ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-left flex items-center justify-between text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} onClick={openAndInit} onKeyDown={onKeyDown}>
         <span>{selected ? `${selected.name}` : 'Select mediator'}</span>
-        <ChevronDownIcon className="w-4 h-4 text-gray-500"/>
+        <ChevronDownIcon className="w-4 h-4 text-gray-500" />
       </button>
       {open && (
         <div className="absolute z-20 mt-1 w-full bg-white border rounded shadow-lg" onKeyDown={onKeyDown}>
           <div className="p-2 border-b bg-gray-50">
-            <input className="w-full border rounded px-2 py-1 text-sm bg-white text-gray-900" placeholder="Search name or phone" value={query} onChange={(e)=> setQuery(e.target.value)} />
+            <input className="w-full border rounded px-2 py-1 text-sm bg-white text-gray-900" placeholder="Search name or phone" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <div ref={listRef} className="max-h-48 overflow-auto text-sm">
             {filtered.map((m, idx) => (
-              <button type="button" data-index={idx} key={m.id} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${m.id===value ? 'bg-indigo-50' : ''} ${idx===active ? 'ring-1 ring-indigo-300' : ''}`} onClick={()=> { onChange(m.id); setOpen(false); }}>
+              <button type="button" data-index={idx} key={m.id} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${m.id === value ? 'bg-indigo-50' : ''} ${idx === active ? 'ring-1 ring-indigo-300' : ''}`} onClick={() => { onChange(m.id); setOpen(false); }}>
                 {m.name}{m.phone ? ` · ${m.phone}` : ''}
               </button>
             ))}
-            {filtered.length===0 && (
+            {filtered.length === 0 && (
               <div className="px-3 py-2 text-gray-500">No matches</div>
             )}
           </div>
           {value && (
             <div className="p-2 border-t bg-gray-50 text-right">
-              <button type="button" className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800" onClick={()=> onChange("")}> <XMarkIcon className="w-3 h-3"/> Clear</button>
+              <button type="button" className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800" onClick={() => onChange("")}> <XMarkIcon className="w-3 h-3" /> Clear</button>
             </div>
           )}
         </div>
@@ -556,9 +631,9 @@ function PlatformSelect({ value, onChange, items, error }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items || [];
-    return (items||[]).filter(p => (p.name||'').toLowerCase().includes(q));
+    return (items || []).filter(p => (p.name || '').toLowerCase().includes(q));
   }, [items, query]);
-  const selected = (items||[]).find(p => p.id === value);
+  const selected = (items || []).find(p => p.id === value);
   useEffect(() => {
     if (active < 0) setActive(0);
     else if (active >= filtered.length) setActive(Math.max(0, filtered.length - 1));
@@ -581,10 +656,10 @@ function PlatformSelect({ value, onChange, items, error }) {
       return;
     }
     if (!open) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(filtered.length-1, a+1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a-1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(filtered.length - 1, a + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a - 1)); }
     else if (e.key === 'Home') { e.preventDefault(); setActive(0); }
-    else if (e.key === 'End') { e.preventDefault(); setActive(Math.max(0, filtered.length-1)); }
+    else if (e.key === 'End') { e.preventDefault(); setActive(Math.max(0, filtered.length - 1)); }
     else if (e.key === 'Enter') {
       e.preventDefault();
       const pick = filtered[active]; if (pick) { onChange(pick.id); setOpen(false); }
@@ -594,26 +669,26 @@ function PlatformSelect({ value, onChange, items, error }) {
     <div className="relative" ref={ref}>
       <button type="button" className={`w-full rounded-md border ${error ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-left flex items-center justify-between text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} onClick={openAndInit} onKeyDown={onKeyDown}>
         <span>{selected ? `${selected.name}` : 'Select platform'}</span>
-        <ChevronDownIcon className="w-4 h-4 text-gray-500"/>
+        <ChevronDownIcon className="w-4 h-4 text-gray-500" />
       </button>
       {open && (
         <div className="absolute z-20 mt-1 w-full bg-white border rounded shadow-lg" onKeyDown={onKeyDown}>
           <div className="p-2 border-b bg-gray-50">
-            <input className="w-full border rounded px-2 py-1 text-sm bg-white text-gray-900" placeholder="Search platform" value={query} onChange={(e)=> setQuery(e.target.value)} />
+            <input className="w-full border rounded px-2 py-1 text-sm bg-white text-gray-900" placeholder="Search platform" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <div ref={listRef} className="max-h-48 overflow-auto text-sm">
             {filtered.map((p, idx) => (
-              <button type="button" data-index={idx} key={p.id} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${p.id===value ? 'bg-indigo-50' : ''} ${idx===active ? 'ring-1 ring-indigo-300' : ''}`} onClick={()=> { onChange(p.id); setOpen(false); }}>
+              <button type="button" data-index={idx} key={p.id} className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${p.id === value ? 'bg-indigo-50' : ''} ${idx === active ? 'ring-1 ring-indigo-300' : ''}`} onClick={() => { onChange(p.id); setOpen(false); }}>
                 {p.name}
               </button>
             ))}
-            {filtered.length===0 && (
+            {filtered.length === 0 && (
               <div className="px-3 py-2 text-gray-500">No matches</div>
             )}
           </div>
           {value && (
             <div className="p-2 border-t bg-gray-50 text-right">
-              <button type="button" className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800" onClick={()=> onChange("")}> <XMarkIcon className="w-3 h-3"/> Clear</button>
+              <button type="button" className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800" onClick={() => onChange("")}> <XMarkIcon className="w-3 h-3" /> Clear</button>
             </div>
           )}
         </div>

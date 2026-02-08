@@ -26,28 +26,42 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         Query query = new Query();
         List<Criteria> filters = new ArrayList<>();
 
-        if (criteria.getPlatformId() != null) filters.add(Criteria.where("platformId").is(criteria.getPlatformId()));
+        if (criteria.getPlatformId() != null)
+            filters.add(Criteria.where("platformId").is(criteria.getPlatformId()));
         if (criteria.getPlatformIdIn() != null && !criteria.getPlatformIdIn().isEmpty())
             filters.add(Criteria.where("platformId").in(criteria.getPlatformIdIn()));
 
-        if (criteria.getStatus() != null) filters.add(Criteria.where("status").is(criteria.getStatus()));
+        if (criteria.getStatus() != null)
+            filters.add(Criteria.where("status").is(criteria.getStatus()));
         if (criteria.getStatusIn() != null && !criteria.getStatusIn().isEmpty())
             filters.add(Criteria.where("status").in(criteria.getStatusIn()));
 
-        if (criteria.getMediatorId() != null) filters.add(Criteria.where("mediatorId").is(criteria.getMediatorId()));
+        if (criteria.getMediatorId() != null)
+            filters.add(Criteria.where("mediatorId").is(criteria.getMediatorId()));
         if (criteria.getMediatorIdIn() != null && !criteria.getMediatorIdIn().isEmpty())
             filters.add(Criteria.where("mediatorId").in(criteria.getMediatorIdIn()));
 
-        if (criteria.getDealType() != null) filters.add(Criteria.where("dealType").is(criteria.getDealType()));
+        if (criteria.getDealType() != null)
+            filters.add(Criteria.where("dealType").is(criteria.getDealType()));
         if (criteria.getDealTypeIn() != null && !criteria.getDealTypeIn().isEmpty())
             filters.add(Criteria.where("dealType").in(criteria.getDealTypeIn()));
+
+        if (criteria.getHasRefundFormUrl() != null) {
+            if (criteria.getHasRefundFormUrl()) {
+                filters.add(Criteria.where("refundFormUrl").exists(true).ne(null).ne(""));
+            } else {
+                filters.add(new Criteria().orOperator(
+                        Criteria.where("refundFormUrl").exists(false),
+                        Criteria.where("refundFormUrl").is(null),
+                        Criteria.where("refundFormUrl").is("")));
+            }
+        }
 
         // Quick search: if both provided, match productName OR orderId (not AND)
         if (criteria.getProductNameContains() != null && criteria.getOrderIdContains() != null) {
             filters.add(new Criteria().orOperator(
                     Criteria.where("productName").regex(criteria.getProductNameContains(), "i"),
-                    Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i")
-            ));
+                    Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i")));
         } else if (criteria.getProductNameContains() != null) {
             filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));
         } else if (criteria.getOrderIdContains() != null) {
@@ -70,27 +84,41 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         Query query = new Query();
         List<Criteria> filters = new ArrayList<>();
 
-        if (criteria.getPlatformId() != null) filters.add(Criteria.where("platformId").is(criteria.getPlatformId()));
+        if (criteria.getPlatformId() != null)
+            filters.add(Criteria.where("platformId").is(criteria.getPlatformId()));
         if (criteria.getPlatformIdIn() != null && !criteria.getPlatformIdIn().isEmpty())
             filters.add(Criteria.where("platformId").in(criteria.getPlatformIdIn()));
 
-        if (criteria.getStatus() != null) filters.add(Criteria.where("status").is(criteria.getStatus()));
+        if (criteria.getStatus() != null)
+            filters.add(Criteria.where("status").is(criteria.getStatus()));
         if (criteria.getStatusIn() != null && !criteria.getStatusIn().isEmpty())
             filters.add(Criteria.where("status").in(criteria.getStatusIn()));
 
-        if (criteria.getMediatorId() != null) filters.add(Criteria.where("mediatorId").is(criteria.getMediatorId()));
+        if (criteria.getMediatorId() != null)
+            filters.add(Criteria.where("mediatorId").is(criteria.getMediatorId()));
         if (criteria.getMediatorIdIn() != null && !criteria.getMediatorIdIn().isEmpty())
             filters.add(Criteria.where("mediatorId").in(criteria.getMediatorIdIn()));
 
-        if (criteria.getDealType() != null) filters.add(Criteria.where("dealType").is(criteria.getDealType()));
+        if (criteria.getDealType() != null)
+            filters.add(Criteria.where("dealType").is(criteria.getDealType()));
         if (criteria.getDealTypeIn() != null && !criteria.getDealTypeIn().isEmpty())
             filters.add(Criteria.where("dealType").in(criteria.getDealTypeIn()));
+
+        if (criteria.getHasRefundFormUrl() != null) {
+            if (criteria.getHasRefundFormUrl()) {
+                filters.add(Criteria.where("refundFormUrl").exists(true).ne(null).ne(""));
+            } else {
+                filters.add(new Criteria().orOperator(
+                        Criteria.where("refundFormUrl").exists(false),
+                        Criteria.where("refundFormUrl").is(null),
+                        Criteria.where("refundFormUrl").is("")));
+            }
+        }
 
         if (criteria.getProductNameContains() != null && criteria.getOrderIdContains() != null) {
             filters.add(new Criteria().orOperator(
                     Criteria.where("productName").regex(criteria.getProductNameContains(), "i"),
-                    Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i")
-            ));
+                    Criteria.where("orderId").regex(criteria.getOrderIdContains(), "i")));
         } else if (criteria.getProductNameContains() != null) {
             filters.add(Criteria.where("productName").regex(criteria.getProductNameContains(), "i"));
         } else if (criteria.getOrderIdContains() != null) {
@@ -106,23 +134,29 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
         long count = list.size();
         BigDecimal totalAmount = BigDecimal.ZERO;
         BigDecimal totalRefund = BigDecimal.ZERO;
+        BigDecimal totalPendingRefund = BigDecimal.ZERO;
 
         for (Review r : list) {
-            if (r.getAmountRupees() != null) totalAmount = totalAmount.add(r.getAmountRupees());
+            if (r.getAmountRupees() != null)
+                totalAmount = totalAmount.add(r.getAmountRupees());
             BigDecimal refund = r.getRefundAmountRupees();
             if (refund == null) {
                 if (r.getAmountRupees() != null && r.getLessRupees() != null) {
                     refund = r.getAmountRupees().subtract(r.getLessRupees());
                 }
             }
-            if (refund != null) totalRefund = totalRefund.add(refund);
+            if (refund != null) {
+                totalRefund = totalRefund.add(refund);
+                if (r.getPaymentReceivedDate() == null) {
+                    totalPendingRefund = totalPendingRefund.add(refund);
+                }
+            }
         }
 
         return java.util.Map.of(
                 "count", count,
                 "totalAmount", totalAmount.doubleValue(),
-                "totalRefund", totalRefund.doubleValue()
-        );
+                "totalRefund", totalRefund.doubleValue(),
+                "totalPendingRefund", totalPendingRefund.doubleValue());
     }
 }
-

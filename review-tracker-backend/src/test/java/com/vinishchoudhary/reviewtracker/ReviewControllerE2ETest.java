@@ -36,8 +36,10 @@ class ReviewControllerE2ETest {
     @Test
     void fullReviewFlow() {
         // create lookup entities
-        Platform platform = restTemplate.postForObject("/api/lookups/platforms", new Platform(null, "Amazon"), Platform.class);
-        Mediator mediator = restTemplate.postForObject("/api/lookups/mediators", new Mediator(null, "John"), Mediator.class);
+        Platform platform = restTemplate.postForObject("/api/lookups/platforms", new Platform(null, "Amazon"),
+                Platform.class);
+        Mediator mediator = restTemplate.postForObject("/api/lookups/mediators", new Mediator(null, "John"),
+                Mediator.class);
 
         // create review
         Review r1 = Review.builder()
@@ -60,7 +62,8 @@ class ReviewControllerE2ETest {
 
         // update review
         created1.setProductName("Widget Updated");
-        ResponseEntity<Review> updatedResp = restTemplate.exchange("/api/reviews/" + created1.getId(), HttpMethod.PUT, new HttpEntity<>(created1), Review.class);
+        ResponseEntity<Review> updatedResp = restTemplate.exchange("/api/reviews/" + created1.getId(), HttpMethod.PUT,
+                new HttpEntity<>(created1), Review.class);
         assertThat(updatedResp.getBody().getProductName()).isEqualTo("Widget Updated");
 
         // search
@@ -85,7 +88,8 @@ class ReviewControllerE2ETest {
         Review created2 = restTemplate.postForObject("/api/reviews", r2, Review.class);
 
         // copy product name from r1 to r2
-        Review copied = restTemplate.postForObject("/api/reviews/" + created1.getId() + "/copy/" + created2.getId(), List.of("productName"), Review.class);
+        Review copied = restTemplate.postForObject("/api/reviews/" + created1.getId() + "/copy/" + created2.getId(),
+                List.of("productName"), Review.class);
         assertThat(copied.getProductName()).isEqualTo("Widget Updated");
 
         // bulk update
@@ -97,7 +101,8 @@ class ReviewControllerE2ETest {
         assertThat(bulkUpdated).hasSize(2);
 
         // history
-        ReviewHistory[] history = restTemplate.getForObject("/api/reviews/" + created1.getId() + "/history", ReviewHistory[].class);
+        ReviewHistory[] history = restTemplate.getForObject("/api/reviews/" + created1.getId() + "/history",
+                ReviewHistory[].class);
         assertThat(history.length).isGreaterThanOrEqualTo(2);
 
         // export csv
@@ -105,7 +110,7 @@ class ReviewControllerE2ETest {
         assertThat(csv).contains("O1");
 
         // import csv
-        String csvData = "orderId,productName,amount,less,refund\nO3,Thing,30,3,27\n";
+        String csvData = "orderId,orderLink,productName,dealType,platformId,mediatorId,amountRupees,lessRupees\nO3,,Thing,REVIEW_SUBMISSION,amz,m1,30,3\n";
         ByteArrayResource csvResource = new ByteArrayResource(csvData.getBytes(StandardCharsets.UTF_8)) {
             @Override
             public String getFilename() {
@@ -117,13 +122,15 @@ class ReviewControllerE2ETest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         HttpEntity<MultiValueMap<String, Object>> importReq = new HttpEntity<>(parts, headers);
-        ResponseEntity<Review[]> importResp = restTemplate.postForEntity("/api/reviews/import", importReq, Review[].class);
+        ResponseEntity<Review[]> importResp = restTemplate.postForEntity("/api/reviews/import", importReq,
+                Review[].class);
         assertThat(importResp.getBody()).hasSize(1);
 
         // dashboard removed in redesign; skip dashboard assertions
 
         // bulk delete
-        HttpEntity<List<String>> deleteReq = new HttpEntity<>(List.of(created1.getId(), created2.getId(), clone.getId()));
+        HttpEntity<List<String>> deleteReq = new HttpEntity<>(
+                List.of(created1.getId(), created2.getId(), clone.getId()));
         restTemplate.postForEntity("/api/reviews/bulk-delete", deleteReq, Void.class);
         Review[] remaining = restTemplate.getForObject("/api/reviews", Review[].class);
         assertThat(remaining.length).isGreaterThanOrEqualTo(1);

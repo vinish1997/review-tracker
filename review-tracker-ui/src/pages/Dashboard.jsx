@@ -10,6 +10,7 @@ export default function Dashboard() {
     pendingRefundForm: null,
     pendingPayment: null,
     overdue: null,
+    readyToSubmit: null,
   });
   const [loading, setLoading] = useState(true);
 
@@ -18,25 +19,28 @@ export default function Dashboard() {
     async function load() {
       setLoading(true);
       try {
-        const [aggRes, c1, c2, c3, oc] = await Promise.all([
+        const [aggRes, c1, c2, c3, oc, c4] = await Promise.all([
           apiAggregates({}),
           // Use search endpoint to fetch counts via totalElements (request minimal page size)
           searchReviews({ statusIn: ["ordered", "delivered"] }, { page: 0, size: 1, sort: "createdAt", dir: "DESC" }),
           searchReviews({ statusIn: ["review submitted", "review accepted", "rating submitted"] }, { page: 0, size: 1, sort: "createdAt", dir: "DESC" }),
           searchReviews({ statusIn: ["refund form submitted"] }, { page: 0, size: 1, sort: "createdAt", dir: "DESC" }),
           apiOverdueCount(),
+          searchReviews({ statusIn: ["review accepted", "rating submitted"], hasRefundFormUrl: true }, { page: 0, size: 1, sort: "createdAt", dir: "DESC" }),
         ]);
         if (cancelled) return;
         setTotals({
           count: Number(aggRes.data?.count ?? 0),
           totalAmount: Number(aggRes.data?.totalAmount ?? 0),
           totalRefund: Number(aggRes.data?.totalRefund ?? 0),
+          totalPendingRefund: Number(aggRes.data?.totalPendingRefund ?? 0),
         });
         setCounts({
           pendingReviewRating: Number(c1.data?.totalElements ?? 0),
           pendingRefundForm: Number(c2.data?.totalElements ?? 0),
           pendingPayment: Number(c3.data?.totalElements ?? 0),
           overdue: Number(oc.data?.overdue ?? 0),
+          readyToSubmit: Number(c4.data?.totalElements ?? 0),
         });
       } catch (err) {
         // Soft-fail: keep UI visible with zeros
@@ -57,7 +61,7 @@ export default function Dashboard() {
     </Link>
   );
 
-  const Stat = ({ label, value, fmt = (v)=>v }) => (
+  const Stat = ({ label, value, fmt = (v) => v }) => (
     <div className="rounded-lg border bg-white p-4">
       <div className="text-sm text-gray-500">{label}</div>
       <div className="mt-1 text-xl font-semibold">{fmt(value)}</div>
@@ -74,13 +78,17 @@ export default function Dashboard() {
         <Card title="Pending Review/Rating" value={counts.pendingReviewRating} to="/reviews?preset=pending-review-rating" accent="blue" />
         <Card title="Pending Refund Form" value={counts.pendingRefundForm} to="/reviews?preset=pending-refund-form" accent="amber" />
         <Card title="Pending Payment" value={counts.pendingPayment} to="/reviews?preset=pending-payment" accent="emerald" />
+        <Card title="Ready to Submit" value={counts.readyToSubmit} to="/reviews?preset=ready-to-submit" accent="orange" />
         <Card title="Overdue" value={counts.overdue} to="/reviews?preset=overdue" accent="rose" />
       </section>
 
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Total Reviews" value={totals.count} fmt={formatInt} />
         <Stat label="Total Amount" value={totals.totalAmount} fmt={formatCurrency} />
-        <Stat label="Total Refund" value={totals.totalRefund} fmt={formatCurrency} />
+        <Stat label="Expected Refund" value={totals.totalRefund} fmt={formatCurrency} />
+        <Stat label="Pending Refund" value={totals.totalPendingRefund} fmt={(v) => (
+          <span className={v > 0 ? "text-amber-600 font-bold" : ""}>{formatCurrency(v)}</span>
+        )} />
       </section>
 
       {loading && (

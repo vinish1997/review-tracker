@@ -24,7 +24,7 @@ public class Review {
     private String orderLink;
     private String productName;
     private String dealType; // REVIEW_PUBLISHED | REVIEW_SUBMISSION | RATING_ONLY
-    private String status;   // computed current status label
+    private String status; // computed current status label
     @Indexed
     private String platformId;
     @Indexed
@@ -44,6 +44,9 @@ public class Review {
     private LocalDate refundFormSubmittedDate;
     @Indexed
     private LocalDate paymentReceivedDate;
+
+    private String refundFormUrl;
+    private String imageUrl;
 
     private BigDecimal amountRupees;
     private BigDecimal lessRupees;

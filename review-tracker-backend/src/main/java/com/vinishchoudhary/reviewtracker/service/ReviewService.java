@@ -70,8 +70,7 @@ public class ReviewService {
         existing.setLessRupees(updated.getLessRupees());
         if (updated.getAmountRupees() != null && updated.getLessRupees() != null) {
             existing.setRefundAmountRupees(
-                    updated.getAmountRupees().subtract(updated.getLessRupees())
-            );
+                    updated.getAmountRupees().subtract(updated.getLessRupees()));
         }
         existing.setOrderedDate(updated.getOrderedDate());
         existing.setDeliveryDate(updated.getDeliveryDate());
@@ -80,6 +79,8 @@ public class ReviewService {
         existing.setRatingSubmittedDate(updated.getRatingSubmittedDate());
         existing.setRefundFormSubmittedDate(updated.getRefundFormSubmittedDate());
         existing.setPaymentReceivedDate(updated.getPaymentReceivedDate());
+        existing.setRefundFormUrl(updated.getRefundFormUrl());
+        existing.setImageUrl(updated.getImageUrl());
         dateValidator.validate(existing);
         existing.setStatus(computeStatus(existing));
 
@@ -123,7 +124,8 @@ public class ReviewService {
 
         r.setStatus(computeStatus(r));
         Review saved = reviewRepo.save(r);
-        historyService.logChange(saved.getId(), "ADVANCE", "Set " + nextField + " to " + when, List.of(new ReviewHistory.Change(nextField, null, when.toString())));
+        historyService.logChange(saved.getId(), "ADVANCE", "Set " + nextField + " to " + when,
+                List.of(new ReviewHistory.Change(nextField, null, when.toString())));
         return saved;
     }
 
@@ -137,13 +139,27 @@ public class ReviewService {
 
     private static void setField(Review r, String field, LocalDate value) {
         switch (field) {
-            case "orderedDate": r.setOrderedDate(value); break;
-            case "deliveryDate": r.setDeliveryDate(value); break;
-            case "reviewSubmitDate": r.setReviewSubmitDate(value); break;
-            case "reviewAcceptedDate": r.setReviewAcceptedDate(value); break;
-            case "ratingSubmittedDate": r.setRatingSubmittedDate(value); break;
-            case "refundFormSubmittedDate": r.setRefundFormSubmittedDate(value); break;
-            case "paymentReceivedDate": r.setPaymentReceivedDate(value); break;
+            case "orderedDate":
+                r.setOrderedDate(value);
+                break;
+            case "deliveryDate":
+                r.setDeliveryDate(value);
+                break;
+            case "reviewSubmitDate":
+                r.setReviewSubmitDate(value);
+                break;
+            case "reviewAcceptedDate":
+                r.setReviewAcceptedDate(value);
+                break;
+            case "ratingSubmittedDate":
+                r.setRatingSubmittedDate(value);
+                break;
+            case "refundFormSubmittedDate":
+                r.setRefundFormSubmittedDate(value);
+                break;
+            case "paymentReceivedDate":
+                r.setPaymentReceivedDate(value);
+                break;
             default: /* ignore */
         }
     }
@@ -151,7 +167,8 @@ public class ReviewService {
     private static void clearAfter(Review r, String fieldInclusive) {
         List<String> seq = sequenceFor(r.getDealType());
         int idx = seq.indexOf(fieldInclusive);
-        if (idx < 0) return;
+        if (idx < 0)
+            return;
         for (int i = idx + 1; i < seq.size(); i++) {
             String f = seq.get(i);
             setField(r, f, null);
@@ -161,34 +178,46 @@ public class ReviewService {
     private static String nextFieldFor(Review r) {
         for (String f : sequenceFor(r.getDealType())) {
             LocalDate v = getField(r, f);
-            if (v == null) return f;
+            if (v == null)
+                return f;
         }
         return null;
     }
 
     private static List<String> sequenceFor(String dealType) {
-        List<String> base = List.of("orderedDate","deliveryDate");
+        List<String> base = List.of("orderedDate", "deliveryDate");
         String dt = dealType == null ? "REVIEW_SUBMISSION" : dealType;
         switch (dt) {
             case "REVIEW_PUBLISHED":
-                return List.of("orderedDate","deliveryDate","reviewSubmitDate","reviewAcceptedDate","refundFormSubmittedDate","paymentReceivedDate");
+                return List.of("orderedDate", "deliveryDate", "reviewSubmitDate", "reviewAcceptedDate",
+                        "refundFormSubmittedDate", "paymentReceivedDate");
             case "RATING_ONLY":
-                return List.of("orderedDate","deliveryDate","ratingSubmittedDate","refundFormSubmittedDate","paymentReceivedDate");
+                return List.of("orderedDate", "deliveryDate", "ratingSubmittedDate", "refundFormSubmittedDate",
+                        "paymentReceivedDate");
             default:
-                return List.of("orderedDate","deliveryDate","reviewSubmitDate","refundFormSubmittedDate","paymentReceivedDate");
+                return List.of("orderedDate", "deliveryDate", "reviewSubmitDate", "refundFormSubmittedDate",
+                        "paymentReceivedDate");
         }
     }
 
     private static LocalDate getField(Review r, String field) {
         switch (field) {
-            case "orderedDate": return r.getOrderedDate();
-            case "deliveryDate": return r.getDeliveryDate();
-            case "reviewSubmitDate": return r.getReviewSubmitDate();
-            case "reviewAcceptedDate": return r.getReviewAcceptedDate();
-            case "ratingSubmittedDate": return r.getRatingSubmittedDate();
-            case "refundFormSubmittedDate": return r.getRefundFormSubmittedDate();
-            case "paymentReceivedDate": return r.getPaymentReceivedDate();
-            default: return null;
+            case "orderedDate":
+                return r.getOrderedDate();
+            case "deliveryDate":
+                return r.getDeliveryDate();
+            case "reviewSubmitDate":
+                return r.getReviewSubmitDate();
+            case "reviewAcceptedDate":
+                return r.getReviewAcceptedDate();
+            case "ratingSubmittedDate":
+                return r.getRatingSubmittedDate();
+            case "refundFormSubmittedDate":
+                return r.getRefundFormSubmittedDate();
+            case "paymentReceivedDate":
+                return r.getPaymentReceivedDate();
+            default:
+                return null;
         }
     }
 
@@ -216,6 +245,8 @@ public class ReviewService {
                 .ratingSubmittedDate(source.getRatingSubmittedDate())
                 .refundFormSubmittedDate(source.getRefundFormSubmittedDate())
                 .paymentReceivedDate(source.getPaymentReceivedDate())
+                .refundFormUrl(source.getRefundFormUrl())
+                .imageUrl(source.getImageUrl())
                 .build();
         copy.setStatus(computeStatus(copy));
         Review saved = reviewRepo.save(copy);
@@ -231,13 +262,27 @@ public class ReviewService {
 
         for (String f : fields) {
             switch (f) {
-                case "productName": tgt.setProductName(src.getProductName()); break;
-                case "orderLink": tgt.setOrderLink(src.getOrderLink()); break;
-                case "platformId": tgt.setPlatformId(src.getPlatformId()); break;
-                case "dealType": tgt.setDealType(src.getDealType()); break;
-                case "mediatorId": tgt.setMediatorId(src.getMediatorId()); break;
-                case "amountRupees": tgt.setAmountRupees(src.getAmountRupees()); break;
-                case "lessRupees": tgt.setLessRupees(src.getLessRupees()); break;
+                case "productName":
+                    tgt.setProductName(src.getProductName());
+                    break;
+                case "orderLink":
+                    tgt.setOrderLink(src.getOrderLink());
+                    break;
+                case "platformId":
+                    tgt.setPlatformId(src.getPlatformId());
+                    break;
+                case "dealType":
+                    tgt.setDealType(src.getDealType());
+                    break;
+                case "mediatorId":
+                    tgt.setMediatorId(src.getMediatorId());
+                    break;
+                case "amountRupees":
+                    tgt.setAmountRupees(src.getAmountRupees());
+                    break;
+                case "lessRupees":
+                    tgt.setLessRupees(src.getLessRupees());
+                    break;
                 case "dates":
                     tgt.setOrderedDate(src.getOrderedDate());
                     tgt.setDeliveryDate(src.getDeliveryDate());
@@ -246,6 +291,8 @@ public class ReviewService {
                     tgt.setRatingSubmittedDate(src.getRatingSubmittedDate());
                     tgt.setRefundFormSubmittedDate(src.getRefundFormSubmittedDate());
                     tgt.setPaymentReceivedDate(src.getPaymentReceivedDate());
+                    tgt.setRefundFormUrl(src.getRefundFormUrl());
+                    tgt.setImageUrl(src.getImageUrl());
                     break;
             }
             changes.add(new ReviewHistory.Change(f, null, "copied from " + sourceId));
@@ -261,17 +308,32 @@ public class ReviewService {
     public List<Review> bulkUpdate(List<String> ids, Map<String, Object> updates) {
         List<Review> reviews = reviewRepo.findAllById(ids);
         for (Review r : reviews) {
-            if (updates.containsKey("platformId")) r.setPlatformId((String) updates.get("platformId"));
-            if (updates.containsKey("mediatorId")) r.setMediatorId((String) updates.get("mediatorId"));
-            if (updates.containsKey("orderLink")) r.setOrderLink((String) updates.get("orderLink"));
-            if (updates.containsKey("dealType")) r.setDealType((String) updates.get("dealType"));
-            if (updates.containsKey("orderedDate")) r.setOrderedDate(LocalDate.parse((String) updates.get("orderedDate")));
-            if (updates.containsKey("deliveryDate")) r.setDeliveryDate(LocalDate.parse((String) updates.get("deliveryDate")));
-            if (updates.containsKey("reviewSubmitDate")) r.setReviewSubmitDate(LocalDate.parse((String) updates.get("reviewSubmitDate")));
-            if (updates.containsKey("reviewAcceptedDate")) r.setReviewAcceptedDate(LocalDate.parse((String) updates.get("reviewAcceptedDate")));
-            if (updates.containsKey("ratingSubmittedDate")) r.setRatingSubmittedDate(LocalDate.parse((String) updates.get("ratingSubmittedDate")));
-            if (updates.containsKey("refundFormSubmittedDate")) r.setRefundFormSubmittedDate(LocalDate.parse((String) updates.get("refundFormSubmittedDate")));
-            if (updates.containsKey("paymentReceivedDate")) r.setPaymentReceivedDate(LocalDate.parse((String) updates.get("paymentReceivedDate")));
+            if (updates.containsKey("platformId"))
+                r.setPlatformId((String) updates.get("platformId"));
+            if (updates.containsKey("mediatorId"))
+                r.setMediatorId((String) updates.get("mediatorId"));
+            if (updates.containsKey("orderLink"))
+                r.setOrderLink((String) updates.get("orderLink"));
+            if (updates.containsKey("dealType"))
+                r.setDealType((String) updates.get("dealType"));
+            if (updates.containsKey("orderedDate"))
+                r.setOrderedDate(LocalDate.parse((String) updates.get("orderedDate")));
+            if (updates.containsKey("deliveryDate"))
+                r.setDeliveryDate(LocalDate.parse((String) updates.get("deliveryDate")));
+            if (updates.containsKey("reviewSubmitDate"))
+                r.setReviewSubmitDate(LocalDate.parse((String) updates.get("reviewSubmitDate")));
+            if (updates.containsKey("reviewAcceptedDate"))
+                r.setReviewAcceptedDate(LocalDate.parse((String) updates.get("reviewAcceptedDate")));
+            if (updates.containsKey("ratingSubmittedDate"))
+                r.setRatingSubmittedDate(LocalDate.parse((String) updates.get("ratingSubmittedDate")));
+            if (updates.containsKey("refundFormSubmittedDate"))
+                r.setRefundFormSubmittedDate(LocalDate.parse((String) updates.get("refundFormSubmittedDate")));
+            if (updates.containsKey("paymentReceivedDate"))
+                r.setPaymentReceivedDate(LocalDate.parse((String) updates.get("paymentReceivedDate")));
+            if (updates.containsKey("refundFormUrl"))
+                r.setRefundFormUrl((String) updates.get("refundFormUrl"));
+            if (updates.containsKey("imageUrl"))
+                r.setImageUrl((String) updates.get("imageUrl"));
             dateValidator.validate(r);
             r.setStatus(computeStatus(r));
         }
@@ -287,9 +349,11 @@ public class ReviewService {
     public String exportCsv() {
         List<Review> reviews = reviewRepo.findAll();
         String[] header = {
-                "orderId","orderLink","productName","dealType","platformId","mediatorId",
-                "amountRupees","lessRupees","refundAmountRupees",
-                "orderedDate","deliveryDate","reviewSubmitDate","reviewAcceptedDate","ratingSubmittedDate","refundFormSubmittedDate","paymentReceivedDate",
+                "orderId", "orderLink", "productName", "dealType", "platformId", "mediatorId",
+                "amountRupees", "lessRupees", "refundAmountRupees",
+                "orderedDate", "deliveryDate", "reviewSubmitDate", "reviewAcceptedDate", "ratingSubmittedDate",
+                "refundFormSubmittedDate", "paymentReceivedDate",
+                "refundFormUrl",
                 "status"
         };
         StringBuilder sb = new StringBuilder(String.join(",", header)).append("\n");
@@ -311,22 +375,31 @@ public class ReviewService {
             row.add(r.getRatingSubmittedDate() == null ? "" : r.getRatingSubmittedDate().toString());
             row.add(r.getRefundFormSubmittedDate() == null ? "" : r.getRefundFormSubmittedDate().toString());
             row.add(r.getPaymentReceivedDate() == null ? "" : r.getPaymentReceivedDate().toString());
+            row.add(nullToEmpty(r.getRefundFormUrl()));
             row.add(nullToEmpty(r.getStatus()));
             sb.append(toCsvRow(row)).append("\n");
         }
         return sb.toString();
     }
 
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
+    }
+
     private static String toCsvRow(List<String> fields) {
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < fields.size(); i++) {
-            if (i > 0) b.append(',');
+            if (i > 0)
+                b.append(',');
             String v = fields.get(i);
-            if (v == null) v = "";
+            if (v == null)
+                v = "";
             boolean needsQuote = v.contains(",") || v.contains("\"") || v.contains("\n");
             v = v.replace("\"", "\"\"");
-            if (needsQuote) b.append('"').append(v).append('"'); else b.append(v);
+            if (needsQuote)
+                b.append('"').append(v).append('"');
+            else
+                b.append(v);
         }
         return b.toString();
     }
@@ -334,30 +407,39 @@ public class ReviewService {
     // ---------- CSV Import ----------
     public List<Review> importCsv(MultipartFile file) throws IOException {
         List<Review> reviews = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             String headerLine = br.readLine();
-            if (headerLine == null) return List.of();
+            if (headerLine == null)
+                return List.of();
             List<String> header = parseCsvLine(headerLine);
-            Map<String,Integer> idx = new HashMap<>();
-            for (int i=0;i<header.size();i++) idx.put(header.get(i).trim(), i);
+            Map<String, Integer> idx = new HashMap<>();
+            for (int i = 0; i < header.size(); i++)
+                idx.put(header.get(i).trim(), i);
 
-            String[] required = {"orderId","orderLink","productName","dealType","platformId","mediatorId","amountRupees","lessRupees"};
-            for (String req : required) if (!idx.containsKey(req))
-                throw new com.vinishchoudhary.reviewtracker.api.error.ValidationException("Missing required column: "+req);
+            String[] required = { "orderId", "orderLink", "productName", "dealType", "platformId", "mediatorId",
+                    "amountRupees", "lessRupees" };
+            for (String req : required)
+                if (!idx.containsKey(req))
+                    throw new com.vinishchoudhary.reviewtracker.api.error.ValidationException(
+                            "Missing required column: " + req);
 
             String line;
             while ((line = br.readLine()) != null) {
-                if (line.isBlank()) continue;
+                if (line.isBlank())
+                    continue;
                 List<String> parts = parseCsvLine(line);
-                java.util.function.Function<String,String> get = (k) -> {
+                java.util.function.Function<String, String> get = (k) -> {
                     Integer i = idx.get(k);
                     return (i == null || i >= parts.size()) ? null : parts.get(i);
                 };
                 String orderId = get.apply("orderId");
                 if (orderId == null || orderId.isBlank())
-                    throw new com.vinishchoudhary.reviewtracker.api.error.ValidationException("orderId is required in CSV");
+                    throw new com.vinishchoudhary.reviewtracker.api.error.ValidationException(
+                            "orderId is required in CSV");
                 if (reviewRepo.existsByOrderId(orderId))
-                    throw new com.vinishchoudhary.reviewtracker.api.error.ValidationException("Duplicate orderId in CSV or DB: "+orderId);
+                    throw new com.vinishchoudhary.reviewtracker.api.error.ValidationException(
+                            "Duplicate orderId in CSV or DB: " + orderId);
 
                 Review r = Review.builder()
                         .orderId(orderId)
@@ -376,6 +458,7 @@ public class ReviewService {
                         .ratingSubmittedDate(parseDate(get.apply("ratingSubmittedDate")))
                         .refundFormSubmittedDate(parseDate(get.apply("refundFormSubmittedDate")))
                         .paymentReceivedDate(parseDate(get.apply("paymentReceivedDate")))
+                        .refundFormUrl(get.apply("refundFormUrl"))
                         .build();
 
                 // Compute refund if not provided
@@ -394,17 +477,25 @@ public class ReviewService {
         List<String> out = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
         boolean inQ = false;
-        for (int i=0;i<line.length();i++) {
+        for (int i = 0; i < line.length(); i++) {
             char ch = line.charAt(i);
             if (inQ) {
                 if (ch == '"') {
-                    if (i+1 < line.length() && line.charAt(i+1) == '"') { cur.append('"'); i++; }
-                    else inQ = false;
-                } else cur.append(ch);
+                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                        cur.append('"');
+                        i++;
+                    } else
+                        inQ = false;
+                } else
+                    cur.append(ch);
             } else {
-                if (ch == ',') { out.add(cur.toString()); cur.setLength(0); }
-                else if (ch == '"') inQ = true;
-                else cur.append(ch);
+                if (ch == ',') {
+                    out.add(cur.toString());
+                    cur.setLength(0);
+                } else if (ch == '"')
+                    inQ = true;
+                else
+                    cur.append(ch);
             }
         }
         out.add(cur.toString());
@@ -412,12 +503,23 @@ public class ReviewService {
     }
 
     private static java.math.BigDecimal parseBig(String s) {
-        if (s == null || s.isBlank()) return null;
-        try { return new BigDecimal(s.trim()); } catch (Exception e) { return null; }
+        if (s == null || s.isBlank())
+            return null;
+        try {
+            return new BigDecimal(s.trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
+
     private static java.time.LocalDate parseDate(String s) {
-        if (s == null || s.isBlank()) return null;
-        try { return java.time.LocalDate.parse(s.trim()); } catch (Exception e) { return null; }
+        if (s == null || s.isBlank())
+            return null;
+        try {
+            return java.time.LocalDate.parse(s.trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // Dashboard and related stats removed for redesign
@@ -429,33 +531,43 @@ public class ReviewService {
     private static java.time.LocalDate previousDateForNext(Review r, String nextField) {
         java.util.List<String> seq = sequenceFor(r.getDealType());
         int idx = seq.indexOf(nextField);
-        if (idx <= 0) return null;
+        if (idx <= 0)
+            return null;
         String prev = seq.get(idx - 1);
         return getField(r, prev);
     }
 
     private static Double average(java.util.List<Long> values) {
-        if (values == null || values.isEmpty()) return 0.0;
+        if (values == null || values.isEmpty())
+            return 0.0;
         return values.stream().mapToLong(Long::longValue).average().orElse(0.0);
     }
 
     private String computeStatus(Review r) {
-        if (r.getPaymentReceivedDate() != null) return "payment received";
-        if (r.getRefundFormSubmittedDate() != null) return "refund form submitted";
+        if (r.getPaymentReceivedDate() != null)
+            return "payment received";
+        if (r.getRefundFormSubmittedDate() != null)
+            return "refund form submitted";
         String deal = r.getDealType() == null ? "REVIEW_SUBMISSION" : r.getDealType();
         switch (deal) {
             case "REVIEW_PUBLISHED":
-                if (r.getReviewAcceptedDate() != null) return "review accepted";
-                if (r.getReviewSubmitDate() != null) return "review submitted";
+                if (r.getReviewAcceptedDate() != null)
+                    return "review accepted";
+                if (r.getReviewSubmitDate() != null)
+                    return "review submitted";
                 break;
             case "RATING_ONLY":
-                if (r.getRatingSubmittedDate() != null) return "rating submitted";
+                if (r.getRatingSubmittedDate() != null)
+                    return "rating submitted";
                 break;
             default: // REVIEW_SUBMISSION
-                if (r.getReviewSubmitDate() != null) return "review submitted";
+                if (r.getReviewSubmitDate() != null)
+                    return "review submitted";
         }
-        if (r.getDeliveryDate() != null) return "delivered";
-        if (r.getOrderedDate() != null) return "ordered";
+        if (r.getDeliveryDate() != null)
+            return "delivered";
+        if (r.getOrderedDate() != null)
+            return "ordered";
         return "ordered";
     }
 }

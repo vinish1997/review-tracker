@@ -34,3 +34,13 @@ export const overdueCount = () => axios.get(`${API_BASE}/metrics/overdue-count`)
 // Advance next step endpoints
 export const advanceReview = (id, date) => axios.post(`${API_BASE}/${id}/advance`, { date });
 export const bulkAdvance = (ids, date) => axios.post(`${API_BASE}/bulk-advance`, { ids, date });
+
+export const uploadImage = (file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return axios.post(`${API_ROOT}/api/media/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
+
+export const getNotifications = () => axios.get(`${API_ROOT}/api/notifications`);
+
+export const bulkUpdate = (ids, updates) => axios.post(`${API_BASE}/bulk-update`, { ids, updates });

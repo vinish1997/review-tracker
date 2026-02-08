@@ -94,28 +94,52 @@ Setup steps:
 
 ## Feature Overview
 
-- Reviews: create, view, update, delete; search and pagination.
-- Lookups: manage Platforms, Statuses, Mediators.
-- Import/Export: CSV import/export for reviews.
-- Bulk actions: bulk delete, bulk advance workflow steps.
-- Dashboard: totals, averages, payment received/pending, overdue and aging buckets, by platform/mediator breakdowns.
-- Views: save, share, and manage saved filter views.
-- History: per‑review activity/history timeline.
-- API docs: interactive Swagger UI at `/swagger-ui/index.html` and JSON at `/v3/api-docs`.
+- **Reviews Management**: Full CRUD operations for tracking product reviews.
+- **Workflow Automation**: Auto-advance reviews through lifecycle steps (Ordered → Delivered → Submitted → Accepted → Form Submitted → Payment Received).
+- **Payment & Refund Tracking**: Explicitly track `Amount Paid`, `Refund Due`, and `Payment Received` dates. Perfect for maintaining paid reviews history.
+- **Interactive Dashboard**: Real-time metrics including total spend, pending refunds, and platform-wise breakdowns.
+- **Lookups**: Manage reusable platforms, mediators, and review statuses.
+- **Bulk Actions**: Efficiently handle multiple reviews (bulk delete, bulk status advance).
+- **Import/Export**: Move data in and out via CSV for external analysis.
+- **History & Audit**: Track every change made to a review with a detailed activity timeline.
+- **Responsive Design**: Designed to work on both laptops and mobile devices for on-the-go tracking.
 
-## Common Commands
+## Vercel & Cloud Deployment
 
-- Build packaged app: `./build.sh`
-- Run packaged app: `./run.sh`
-- Backend dev run: `mvn -f review-tracker-backend/pom.xml spring-boot:run`
-- Frontend dev run: `npm --prefix review-tracker-ui install && npm --prefix review-tracker-ui run dev`
+To host this project for personal use on mobile and laptop, a split deployment is recommended:
 
-## Troubleshooting
+### 1. Frontend (Vercel)
+- **Deployment**: Connect the `review-tracker-ui` folder to a new Vercel project.
+- **Routing**: Add a `vercel.json` in the UI root to handle SPA routing:
+  ```json
+  {
+    "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  }
+  ```
+- **Environment Variables**: Set `VITE_API_BASE` to your deployed backend URL.
 
-- Mongo connection errors: set `SPRING_DATA_MONGODB_URI` and ensure Mongo is reachable.
-- CORS in dev: set `VITE_API_BASE` to your backend origin; the packaged single‑jar avoids CORS issues.
-- Port in use: set `SERVER_PORT` to a free port before starting the backend.
+### 2. Backend (Render / Railway / fly.io)
+- **Deployment**: Deploy the `review-tracker-backend` as a Java/Maven application.
+- **Database**: Use a free-tier **MongoDB Atlas** cluster.
+- **Environment Variables**:
+    - `SPRING_DATA_MONGODB_URI`: Your Atlas connection string.
+    - `ALLOWED_ORIGINS`: Your Vercel frontend URL (to enable CORS).
+
+### 3. Local Mobile Testing
+- Ensure your mobile and laptop are on the same network.
+- Run the app locally and access it via your laptop's IP address (e.g., `http://192.168.1.5:8080`).
 
 ---
 
-For questions or PR reviews, open an issue or mention maintainers in your PR.
+## Enhancement Suggestions (Future)
+
+Based on current project scope, the following enhancements are proposed for better mobile usability:
+1. **PWA Integration**: Install the app as a mobile "app" without an app store.
+2. **Push Notifications**: Get alerts for overdue payments or pending reviews.
+3. **Optimized Mobile Layout**: Switch to card-style views instead of tables on small screens.
+4. **Offline Mode**: View your reviews even without an active internet connection.
+
+---
+
+## Common Commands
+... (rest of the file)

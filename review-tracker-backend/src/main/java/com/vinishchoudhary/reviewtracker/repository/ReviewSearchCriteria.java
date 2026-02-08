@@ -13,20 +13,26 @@ public class ReviewSearchCriteria {
     private String orderIdContains;
     private String dealType;
     private java.util.List<String> dealTypeIn;
+    private Boolean hasRefundFormUrl;
 
     public ReviewSearchCriteria() {
     }
 
-    public ReviewSearchCriteria(String platformId, String status, java.util.List<String> statusIn, java.util.List<String> platformIdIn, String mediatorId, String productNameContains, String orderIdContains, String dealType, java.util.List<String> dealTypeIn) {
+    public ReviewSearchCriteria(String platformId, String status, java.util.List<String> statusIn,
+            java.util.List<String> platformIdIn, String mediatorId, java.util.List<String> mediatorIdIn,
+            String productNameContains, String orderIdContains, String dealType, java.util.List<String> dealTypeIn,
+            Boolean hasRefundFormUrl) {
         this.platformId = platformId;
         this.status = status;
         this.statusIn = statusIn;
         this.platformIdIn = platformIdIn;
         this.mediatorId = mediatorId;
+        this.mediatorIdIn = mediatorIdIn;
         this.productNameContains = productNameContains;
         this.orderIdContains = orderIdContains;
         this.dealType = dealType;
         this.dealTypeIn = dealTypeIn;
+        this.hasRefundFormUrl = hasRefundFormUrl;
     }
 
     public static Builder builder() {
@@ -57,8 +63,13 @@ public class ReviewSearchCriteria {
         this.mediatorId = mediatorId;
     }
 
-    public java.util.List<String> getMediatorIdIn() { return mediatorIdIn; }
-    public void setMediatorIdIn(java.util.List<String> mediatorIdIn) { this.mediatorIdIn = mediatorIdIn; }
+    public java.util.List<String> getMediatorIdIn() {
+        return mediatorIdIn;
+    }
+
+    public void setMediatorIdIn(java.util.List<String> mediatorIdIn) {
+        this.mediatorIdIn = mediatorIdIn;
+    }
 
     public java.util.List<String> getStatusIn() {
         return statusIn;
@@ -68,11 +79,21 @@ public class ReviewSearchCriteria {
         this.statusIn = statusIn;
     }
 
-    public java.util.List<String> getPlatformIdIn() { return platformIdIn; }
-    public void setPlatformIdIn(java.util.List<String> platformIdIn) { this.platformIdIn = platformIdIn; }
+    public java.util.List<String> getPlatformIdIn() {
+        return platformIdIn;
+    }
 
-    public java.util.List<String> getDealTypeIn() { return dealTypeIn; }
-    public void setDealTypeIn(java.util.List<String> dealTypeIn) { this.dealTypeIn = dealTypeIn; }
+    public void setPlatformIdIn(java.util.List<String> platformIdIn) {
+        this.platformIdIn = platformIdIn;
+    }
+
+    public java.util.List<String> getDealTypeIn() {
+        return dealTypeIn;
+    }
+
+    public void setDealTypeIn(java.util.List<String> dealTypeIn) {
+        this.dealTypeIn = dealTypeIn;
+    }
 
     public String getProductNameContains() {
         return productNameContains;
@@ -90,8 +111,21 @@ public class ReviewSearchCriteria {
         this.orderIdContains = orderIdContains;
     }
 
-    public String getDealType() { return dealType; }
-    public void setDealType(String dealType) { this.dealType = dealType; }
+    public String getDealType() {
+        return dealType;
+    }
+
+    public void setDealType(String dealType) {
+        this.dealType = dealType;
+    }
+
+    public Boolean getHasRefundFormUrl() {
+        return hasRefundFormUrl;
+    }
+
+    public void setHasRefundFormUrl(Boolean hasRefundFormUrl) {
+        this.hasRefundFormUrl = hasRefundFormUrl;
+    }
 
     public static final class Builder {
         private String platformId;
@@ -104,8 +138,10 @@ public class ReviewSearchCriteria {
         private String orderIdContains;
         private String dealType;
         private java.util.List<String> dealTypeIn;
+        private Boolean hasRefundFormUrl;
 
-        private Builder() { }
+        private Builder() {
+        }
 
         public Builder platformId(String platformId) {
             this.platformId = platformId;
@@ -157,8 +193,14 @@ public class ReviewSearchCriteria {
             return this;
         }
 
+        public Builder hasRefundFormUrl(Boolean hasRefundFormUrl) {
+            this.hasRefundFormUrl = hasRefundFormUrl;
+            return this;
+        }
+
         public ReviewSearchCriteria build() {
-            return new ReviewSearchCriteria(platformId, status, statusIn, platformIdIn, mediatorId, productNameContains, orderIdContains, dealType, dealTypeIn);
+            return new ReviewSearchCriteria(platformId, status, statusIn, platformIdIn, mediatorId, mediatorIdIn,
+                    productNameContains, orderIdContains, dealType, dealTypeIn, hasRefundFormUrl);
         }
     }
 }

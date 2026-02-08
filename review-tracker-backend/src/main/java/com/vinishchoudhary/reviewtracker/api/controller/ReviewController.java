@@ -39,7 +39,6 @@ public class ReviewController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-    
 
     @GetMapping
     public List<Review> all(@RequestParam(required = false) String search) {
@@ -53,7 +52,6 @@ public class ReviewController {
                 .getContent();
     }
 
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id) {
         reviewService.deleteReview(id);
@@ -62,12 +60,13 @@ public class ReviewController {
 
     @PostMapping("/search")
     public PageResponse<Review> search(@RequestBody ReviewSearchCriteria criteria,
-                               @RequestParam(defaultValue = "0") int page,
-                               @RequestParam(defaultValue = "10") int size,
-                               @RequestParam(required = false, defaultValue = "createdAt") String sort,
-                               @RequestParam(required = false, defaultValue = "DESC") String dir) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "createdAt") String sort,
+            @RequestParam(required = false, defaultValue = "DESC") String dir) {
         Sort.Direction direction = "ASC".equalsIgnoreCase(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Page<Review> result = reviewService.searchReviews(criteria, PageRequest.of(page, size, Sort.by(direction, sort)));
+        Page<Review> result = reviewService.searchReviews(criteria,
+                PageRequest.of(page, size, Sort.by(direction, sort)));
         PageResponse<Review> resp = new PageResponse<>(
                 result.getContent(),
                 result.getNumber(),
@@ -75,8 +74,7 @@ public class ReviewController {
                 result.getTotalElements(),
                 result.getTotalPages(),
                 sort,
-                dir
-        );
+                dir);
         return resp;
     }
 
@@ -96,8 +94,8 @@ public class ReviewController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false, defaultValue = "createdAt") String sort,
-            @RequestParam(required = false, defaultValue = "DESC") String dir
-    ) {
+            @RequestParam(required = false, defaultValue = "DESC") String dir,
+            @RequestParam(required = false) Boolean hasRefundFormUrl) {
         ReviewSearchCriteria criteria = ReviewSearchCriteria.builder()
                 .platformId(emptyToNull(platformId))
                 .mediatorId(emptyToNull(mediatorId))
@@ -109,9 +107,11 @@ public class ReviewController {
                 .mediatorIdIn(normalizeList(mediatorIdIn))
                 .statusIn(normalizeList(statusIn))
                 .dealTypeIn(normalizeList(dealTypeIn))
+                .hasRefundFormUrl(hasRefundFormUrl)
                 .build();
         Sort.Direction direction = "ASC".equalsIgnoreCase(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Page<Review> result = reviewService.searchReviews(criteria, PageRequest.of(page, size, Sort.by(direction, sort)));
+        Page<Review> result = reviewService.searchReviews(criteria,
+                PageRequest.of(page, size, Sort.by(direction, sort)));
         return new PageResponse<>(
                 result.getContent(),
                 result.getNumber(),
@@ -119,8 +119,7 @@ public class ReviewController {
                 result.getTotalElements(),
                 result.getTotalPages(),
                 sort,
-                dir
-        );
+                dir);
     }
 
     @PostMapping("/aggregates")
@@ -136,8 +135,8 @@ public class ReviewController {
             @RequestParam(required = false) List<String> platformIdIn,
             @RequestParam(required = false) List<String> mediatorIdIn,
             @RequestParam(required = false) List<String> statusIn,
-            @RequestParam(required = false) List<String> dealTypeIn
-    ) {
+            @RequestParam(required = false) List<String> dealTypeIn,
+            @RequestParam(required = false) Boolean hasRefundFormUrl) {
         ReviewSearchCriteria criteria = ReviewSearchCriteria.builder()
                 .productNameContains(emptyToNull(productNameContains))
                 .orderIdContains(emptyToNull(orderIdContains))
@@ -145,6 +144,7 @@ public class ReviewController {
                 .mediatorIdIn(normalizeList(mediatorIdIn))
                 .statusIn(normalizeList(statusIn))
                 .dealTypeIn(normalizeList(dealTypeIn))
+                .hasRefundFormUrl(hasRefundFormUrl)
                 .build();
         return ResponseEntity.ok(reviewService.aggregates(criteria));
     }
@@ -152,20 +152,25 @@ public class ReviewController {
     private static String emptyToNull(String s) {
         return (s == null || s.isBlank()) ? null : s;
     }
+
     private static List<String> normalizeList(List<String> in) {
-        if (in == null) return null;
+        if (in == null)
+            return null;
         // Accept both repeated query params and single comma-separated strings
         List<String> out = new ArrayList<>();
         for (String v : in) {
-            if (v == null) continue;
+            if (v == null)
+                continue;
             if (v.contains(",")) {
                 for (String p : v.split(",")) {
                     String t = p.trim();
-                    if (!t.isEmpty()) out.add(t);
+                    if (!t.isEmpty())
+                        out.add(t);
                 }
             } else {
                 String t = v.trim();
-                if (!t.isEmpty()) out.add(t);
+                if (!t.isEmpty())
+                    out.add(t);
             }
         }
         return out.isEmpty() ? null : out;
@@ -179,13 +184,16 @@ public class ReviewController {
 
     @PostMapping("/{srcId}/copy/{targetId}")
     public ResponseEntity<Review> copyFields(@PathVariable String srcId,
-                                             @PathVariable String targetId,
-                                             @RequestBody List<String> fields) {
+            @PathVariable String targetId,
+            @RequestBody List<String> fields) {
         return ResponseEntity.ok(reviewService.copyFields(srcId, targetId, fields));
     }
 
     // ---------- Advance ----------
-    public static class AdvanceRequest { public String date; public List<String> ids; }
+    public static class AdvanceRequest {
+        public String date;
+        public List<String> ids;
+    }
 
     @PostMapping("/{id}/advance")
     public ResponseEntity<Review> advance(@PathVariable String id, @RequestBody(required = false) AdvanceRequest body) {
@@ -198,9 +206,11 @@ public class ReviewController {
 
     @PostMapping("/bulk-advance")
     public ResponseEntity<List<Review>> bulkAdvance(@RequestBody AdvanceRequest body) {
-        if (body == null || body.ids == null || body.ids.isEmpty()) return ResponseEntity.badRequest().build();
+        if (body == null || body.ids == null || body.ids.isEmpty())
+            return ResponseEntity.badRequest().build();
         LocalDate when = null;
-        if (body.date != null && !body.date.isBlank()) when = LocalDate.parse(body.date);
+        if (body.date != null && !body.date.isBlank())
+            when = LocalDate.parse(body.date);
         return ResponseEntity.ok(reviewService.bulkAdvanceNext(body.ids, when));
     }
 

@@ -46,7 +46,6 @@ public class Review {
     private LocalDate paymentReceivedDate;
 
     private String refundFormUrl;
-    private String imageUrl;
 
     private BigDecimal amountRupees;
     private BigDecimal lessRupees;

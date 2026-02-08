@@ -80,7 +80,6 @@ public class ReviewService {
         existing.setRefundFormSubmittedDate(updated.getRefundFormSubmittedDate());
         existing.setPaymentReceivedDate(updated.getPaymentReceivedDate());
         existing.setRefundFormUrl(updated.getRefundFormUrl());
-        existing.setImageUrl(updated.getImageUrl());
         dateValidator.validate(existing);
         existing.setStatus(computeStatus(existing));
 
@@ -246,7 +245,6 @@ public class ReviewService {
                 .refundFormSubmittedDate(source.getRefundFormSubmittedDate())
                 .paymentReceivedDate(source.getPaymentReceivedDate())
                 .refundFormUrl(source.getRefundFormUrl())
-                .imageUrl(source.getImageUrl())
                 .build();
         copy.setStatus(computeStatus(copy));
         Review saved = reviewRepo.save(copy);
@@ -292,7 +290,6 @@ public class ReviewService {
                     tgt.setRefundFormSubmittedDate(src.getRefundFormSubmittedDate());
                     tgt.setPaymentReceivedDate(src.getPaymentReceivedDate());
                     tgt.setRefundFormUrl(src.getRefundFormUrl());
-                    tgt.setImageUrl(src.getImageUrl());
                     break;
             }
             changes.add(new ReviewHistory.Change(f, null, "copied from " + sourceId));
@@ -332,8 +329,6 @@ public class ReviewService {
                 r.setPaymentReceivedDate(LocalDate.parse((String) updates.get("paymentReceivedDate")));
             if (updates.containsKey("refundFormUrl"))
                 r.setRefundFormUrl((String) updates.get("refundFormUrl"));
-            if (updates.containsKey("imageUrl"))
-                r.setImageUrl((String) updates.get("imageUrl"));
             dateValidator.validate(r);
             r.setStatus(computeStatus(r));
         }

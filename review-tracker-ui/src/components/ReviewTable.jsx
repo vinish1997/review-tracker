@@ -82,7 +82,6 @@ export default function ReviewTable() {
   // Filters popover state
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState('presets'); // 'presets' | 'platform' | 'status' | 'deal' | 'mediator'
-  const [lightbox, setLightbox] = useState(null);
 
   useEffect(() => {
     if (!filtersOpen) setOpenDatePicker(null);
@@ -98,7 +97,7 @@ export default function ReviewTable() {
     setAdvancingRowId(null);
     rowMenuAnchorRef.current = null;
   }, []);
-  const defaultColOrder = ['image', 'orderId', 'productName', 'platformName', 'status', 'dealType', 'mediatorName', 'amountRupees', 'refundAmountRupees', 'orderedDate', 'deliveryDate', 'reviewSubmitDate', 'reviewAcceptedDate', 'ratingSubmittedDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
+  const defaultColOrder = ['orderId', 'productName', 'platformName', 'status', 'dealType', 'mediatorName', 'amountRupees', 'refundAmountRupees', 'orderedDate', 'deliveryDate', 'reviewSubmitDate', 'reviewAcceptedDate', 'ratingSubmittedDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
   const [colOrder, setColOrder] = useState(() => {
     try { const s = localStorage.getItem('review-col-order'); return s ? JSON.parse(s) : defaultColOrder.slice(); } catch { return defaultColOrder.slice(); }
   });
@@ -107,8 +106,8 @@ export default function ReviewTable() {
     try { const s = localStorage.getItem('review-col-widths'); return s ? JSON.parse(s) : {}; } catch { return {}; }
   });
   const [visibleCols, setVisibleCols] = useState(() => {
-    const full = { image: true, orderId: true, productName: true, platformName: true, status: true, dealType: true, mediatorName: true, amountRupees: true, refundAmountRupees: true, orderedDate: true, deliveryDate: false, reviewSubmitDate: false, reviewAcceptedDate: false, ratingSubmittedDate: false, refundFormSubmittedDate: false, paymentReceivedDate: false };
-    const compact = { image: true, orderId: true, productName: true, platformName: false, status: true, dealType: false, mediatorName: false, amountRupees: false, refundAmountRupees: true, orderedDate: true, deliveryDate: false, reviewSubmitDate: false, reviewAcceptedDate: false, ratingSubmittedDate: false, refundFormSubmittedDate: false, paymentReceivedDate: false };
+    const full = { orderId: true, productName: true, platformName: true, status: true, dealType: true, mediatorName: true, amountRupees: true, refundAmountRupees: true, orderedDate: true, deliveryDate: false, reviewSubmitDate: false, reviewAcceptedDate: false, ratingSubmittedDate: false, refundFormSubmittedDate: false, paymentReceivedDate: false };
+    const compact = { orderId: true, productName: true, platformName: false, status: true, dealType: false, mediatorName: false, amountRupees: false, refundAmountRupees: true, orderedDate: true, deliveryDate: false, reviewSubmitDate: false, reviewAcceptedDate: false, ratingSubmittedDate: false, refundFormSubmittedDate: false, paymentReceivedDate: false };
     try {
       const s = localStorage.getItem('review-visible-cols');
       if (s) return JSON.parse(s);
@@ -211,7 +210,7 @@ export default function ReviewTable() {
       console.error("Failed to fetch reviews", err);
     }
     setLoading(false);
-  }, [aSearch, aPlatformIds, aMediatorIds, sortField, sortDir, page, size, aQuickMode, aStatuses, aDealTypes, statusInPreset, overdueOnly, datePreset, dateRangeFrom, dateRangeTo, hasRefundFormUrlInPreset]);
+  }, [aSearch, aPlatformIds, aMediatorIds, sortField, sortDir, page, size, aQuickMode, aStatuses, aDealTypes, statusInPreset, overdueOnly, datePreset, dateRangeFrom, dateRangeTo, hasRefundFormUrlInPreset, isOverdue]);
 
   // Read optional dashboard preset and apply multi-status filters
   useEffect(() => {
@@ -282,14 +281,6 @@ export default function ReviewTable() {
 
   function renderCell(key, r) {
     switch (key) {
-      case 'image':
-        return r.imageUrl ? (
-          <button className="w-10 h-10 flex items-center justify-center overflow-hidden rounded-md bg-gray-50 border border-gray-200" onClick={() => setLightbox(r.imageUrl)}>
-            <img src={r.imageUrl.startsWith('http') ? r.imageUrl : `${(import.meta?.env?.VITE_API_BASE || "").replace(/\/$/, "")}${r.imageUrl}`} alt="Review" className="object-cover w-full h-full" />
-          </button>
-        ) : (
-          <div className="w-10 h-10 flex items-center justify-center rounded-md bg-gray-50 border border-gray-100 italic text-[8px] text-gray-400">No Img</div>
-        );
       case 'orderId':
         return (
           <div className="flex items-center gap-1">
@@ -473,7 +464,7 @@ export default function ReviewTable() {
     });
   };
 
-  function nextFieldFor(r) {
+  const nextFieldFor = useCallback((r) => {
     const base = ['orderedDate', 'deliveryDate'];
     const type = r.dealType || 'REVIEW_SUBMISSION';
     const seq = type === 'REVIEW_PUBLISHED'
@@ -483,8 +474,9 @@ export default function ReviewTable() {
         : [...base, 'reviewSubmitDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
     for (const k of seq) if (!r[k]) return k;
     return null;
-  }
-  function isOverdue(r) {
+  }, []);
+
+  const isOverdue = useCallback((r) => {
     if (!r.deliveryDate) return false;
     const nf = nextFieldFor(r);
     if (!nf) return false;
@@ -492,7 +484,7 @@ export default function ReviewTable() {
     if (Number.isNaN(d.getTime())) return false;
     const days = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
     return days > 7;
-  }
+  }, [nextFieldFor]);
 
   const duplicateRow = (r) => {
     const clean = {
@@ -1357,20 +1349,6 @@ export default function ReviewTable() {
           <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={() => { const cb = confirm.onConfirm; setConfirm({ open: false, title: '', message: '', onConfirm: null }); cb?.(); }}>Confirm</button>
         </div>
       </Modal>
-      {lightbox && (
-        <Modal open={!!lightbox} onClose={() => setLightbox(null)} title="Image Preview">
-          <div className="flex items-center justify-center p-2">
-            <img
-              src={lightbox.startsWith('http') ? lightbox : `${(import.meta?.env?.VITE_API_BASE || "").replace(/\/$/, "")}${lightbox}`}
-              alt="Full size preview"
-              className="max-w-full max-h-[80vh] rounded shadow-lg object-contain"
-            />
-          </div>
-          <div className="flex justify-end p-4 border-t">
-            <button className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200" onClick={() => setLightbox(null)}>Close</button>
-          </div>
-        </Modal>
-      )}
       <BulkEditModal
         open={bulkEditOpen}
         onClose={() => setBulkEditOpen(false)}

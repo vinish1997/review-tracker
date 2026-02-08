@@ -2,8 +2,7 @@ import { useForm, Controller } from "react-hook-form";
 import DatePicker from "react-datepicker";
 import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { createReview, updateReview, uploadImage } from "../api/reviews";
-import { PhotoIcon } from "@heroicons/react/24/outline";
+import { createReview, updateReview } from "../api/reviews";
 import useToast from "./useToast";
 import { getPlatforms, getMediators } from "../api/lookups";
 
@@ -24,8 +23,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     ratingSubmittedDate: null,
     refundFormSubmittedDate: null,
     paymentReceivedDate: null,
-    refundFormUrl: "",
-    imageUrl: ""
+    refundFormUrl: ""
   }), []);
   const { register, handleSubmit, control, watch, formState: { errors }, reset, setValue } = useForm({
     mode: 'onChange',
@@ -39,8 +37,6 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
   const [stayAfterSave, setStayAfterSave] = useState(false);
   const [saveAsNew, setSaveAsNew] = useState(false);
   const firstFieldRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
-  const imageUrl = watch("imageUrl");
 
   useEffect(() => {
     async function fetchLookups() {
@@ -279,63 +275,6 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
         {errors.refundFormUrl && <span className="text-red-500 text-sm">Valid URL required (https://...).</span>}
       </div>
 
-      {/* Product Image Upload */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Product Image / Screenshot</label>
-        <div className="flex items-center gap-4">
-          <div className="relative w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden group">
-            {imageUrl ? (
-              <>
-                <img src={imageUrl.startsWith('http') ? imageUrl : `${(import.meta?.env?.VITE_API_BASE || "").replace(/\/$/, "")}${imageUrl}`} alt="Preview" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setValue("imageUrl", "", { shouldDirty: true })}
-                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                >
-                  <XMarkIcon className="w-6 h-6 text-white" />
-                </button>
-              </>
-            ) : (
-              <PhotoIcon className="w-8 h-8 text-gray-400" />
-            )}
-            {uploading && (
-              <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-          </div>
-          <div className="flex-1">
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              id="product-image-upload"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setUploading(true);
-                try {
-                  const res = await uploadImage(file);
-                  setValue("imageUrl", res.data.url, { shouldDirty: true });
-                  toast.show("Image uploaded", "success");
-                } catch (err) {
-                  console.error(err);
-                  toast.show("Upload failed", "error");
-                } finally {
-                  setUploading(false);
-                }
-              }}
-            />
-            <label
-              htmlFor="product-image-upload"
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              {imageUrl ? "Change Image" : "Upload Image"}
-            </label>
-            <p className="mt-1 text-xs text-gray-500">PNG, JPG up to 5MB</p>
-          </div>
-        </div>
-      </div>
 
       {/* Deal Type & Dropdowns */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

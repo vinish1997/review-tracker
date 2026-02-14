@@ -125,12 +125,12 @@ export default function ReviewTable() {
   const [aQuickMode, setAQuickMode] = useState("both");
   const [aggTotals, setAggTotals] = useState(null);
 
-  const platformMap = useMemo(() => Object.fromEntries(platforms.map(p => [p.id, p.name])), [platforms]);
-  const mediatorMap = useMemo(() => Object.fromEntries(mediators.map(m => [m.id, m])), [mediators]);
+  const platformMap = useMemo(() => Object.fromEntries((platforms || []).map(p => [p.id, p.name])), [platforms]);
+  const mediatorMap = useMemo(() => Object.fromEntries((mediators || []).map(m => [m.id, m])), [mediators]);
   const filteredMediators = useMemo(() => {
     const q = mediatorQuery.trim().toLowerCase();
-    if (!q) return mediators;
-    return mediators.filter(m => (m.name || '').toLowerCase().includes(q) || (m.phone || '').toLowerCase().includes(q));
+    if (!q) return mediators || [];
+    return (mediators || []).filter(m => (m.name || '').toLowerCase().includes(q) || (m.phone || '').toLowerCase().includes(q));
   }, [mediators, mediatorQuery]);
   const fromDraftDate = dateRangeDraft.from ? new Date(dateRangeDraft.from) : null;
   const toDraftDate = dateRangeDraft.to ? new Date(dateRangeDraft.to) : null;
@@ -203,8 +203,8 @@ export default function ReviewTable() {
       setSelected(new Set());
       setTotalPages(pr.totalPages ?? 0);
       setTotalElements(pr.totalElements ?? 0);
-      setPlatforms(pRes.data);
-      setMediators(mRes.data);
+      setPlatforms(pRes.data || []);
+      setMediators(mRes.data || []);
       setAggTotals(overdueOnly ? null : (aggRes.data || null));
     } catch (err) {
       console.error("Failed to fetch reviews", err);

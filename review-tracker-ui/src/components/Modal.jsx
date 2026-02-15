@@ -42,9 +42,9 @@ export default function Modal({ open, title, children, onClose }) {
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center" aria-modal="true" role="dialog" aria-labelledby="modal-title">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div ref={dialogRef} tabIndex={-1} className="relative w-full max-w-lg mx-4 rounded bg-white text-gray-900 shadow-lg outline-none">
-        <div id="modal-title" className="px-4 py-3 border-b font-semibold">{title}</div>
-        <div className="p-4">{children}</div>
+      <div ref={dialogRef} tabIndex={-1} className="relative w-full max-w-lg mx-4 rounded bg-white text-gray-900 shadow-lg outline-none max-h-[90vh] flex flex-col">
+        <div id="modal-title" className="px-4 py-3 border-b font-semibold shrink-0">{title}</div>
+        <div className="p-4 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

@@ -47,7 +47,6 @@ function App() {
 
         {/* Mobile Navigation */}
         <BottomNav />
-        <FAB />
       </ToastProvider>
     </BrowserRouter>
   );

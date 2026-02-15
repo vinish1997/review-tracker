@@ -1,7 +1,9 @@
 import { useForm, Controller } from "react-hook-form";
-import DatePicker from "react-datepicker";
+
 import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon, ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 import Modal from "./Modal";
+import CustomSelect from "./CustomSelect";
+import CustomDatePicker from "./CustomDatePicker";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createReview, updateReview } from "../api/reviews";
 import useToast from "./useToast";
@@ -287,12 +289,24 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Deal Type</label>
-            <select {...register("dealType", { required: "Deal type is required" })} className={`w-full rounded-md border ${errors.dealType ? 'border-red-500' : 'border-gray-300'} bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}>
-              <option value="">Select</option>
-              <option value="REVIEW_PUBLISHED">Review Published</option>
-              <option value="REVIEW_SUBMISSION">Review Submission</option>
-              <option value="RATING_ONLY">Rating Only</option>
-            </select>
+            <Controller
+              name="dealType"
+              control={control}
+              rules={{ required: "Deal type is required" }}
+              render={({ field }) => (
+                <CustomSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    { value: "REVIEW_PUBLISHED", label: "Review Published" },
+                    { value: "REVIEW_SUBMISSION", label: "Review Submission" },
+                    { value: "RATING_ONLY", label: "Rating Only" }
+                  ]}
+                  error={errors.dealType}
+                  placeholder="Select Deal Type"
+                />
+              )}
+            />
             {errors.dealType && <span className="text-red-500 text-sm">{errors.dealType.message}</span>}
           </div>
           <div>
@@ -411,15 +425,14 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
                 <div key={step}>
                   <label className="block text-sm font-medium text-gray-700 inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-4 h-4 text-gray-400" title={tipOf(step)} /></label>
                   <Controller name={step} control={control} render={({ field }) => (
-                    <DatePicker
-                      className="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      selected={field.value}
+                    <CustomDatePicker
+                      value={field.value}
                       disabled={!dealType}
                       onChange={(d) => {
                         // Enforce chronological order: date >= previous step's date
                         const prevKey = stepSequence[idx - 1];
                         const prevVal = idx > 0 ? valueOf(prevKey) : null;
-                        if (prevVal && d && new Date(d).getTime() < new Date(prevVal).getTime()) {
+                        if (prevVal && d && d.getTime() < new Date(prevVal).getTime()) {
                           toast.show('Date must be same or later than previous step', 'error');
                           return;
                         }
@@ -427,7 +440,6 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
                         resetAfter(step);
                         setEditStep(null);
                       }}
-                      dateFormat="yyyy-MM-dd"
                     />
                   )} />
                 </div>

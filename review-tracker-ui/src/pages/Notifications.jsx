@@ -35,10 +35,16 @@ export default function Notifications() {
                     <h2 className="text-2xl font-bold text-gray-900">Notifications</h2>
                     <p className="text-gray-600">Proactive reminders for your reviews and refunds</p>
                 </div>
-                <button onClick={() => setRulesOpen(true)} className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 bg-white px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm transition-colors">
-                    <BookOpenIcon className="w-4 h-4" />
-                    <span>Rules</span>
-                </button>
+                <div className="flex gap-2">
+                    <Link to="/notification-rules" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 bg-white px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm transition-colors">
+                        <Cog6ToothIcon className="w-4 h-4" />
+                        <span className="hidden sm:inline">Manage</span>
+                    </Link>
+                    <button onClick={() => setRulesOpen(true)} className="flex items-center gap-1 text-sm text-gray-600 hover:text-indigo-600 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm transition-colors">
+                        <InformationCircleIcon className="w-4 h-4" />
+                        <span className="hidden sm:inline">Logic Info</span>
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-b-xl shadow-sm border border-t-0 divide-y divide-gray-100 section-list">

@@ -1391,7 +1391,7 @@ export default function ReviewTable() {
           }
         }}
       />
-      <FAB />
+      <FAB to="/reviews/new" ariaLabel="Add Review" />
     </div>
   );
 }
@@ -1477,7 +1477,7 @@ function Shortcuts({ onAdvance, onFocusSearch, onDelete }) {
 }
 
 function FABWrapper() {
-  return <FAB />;
+  return <FAB to="/reviews/new" ariaLabel="Add Review" />;
 }
 
 function dealTypeLabel(code) {

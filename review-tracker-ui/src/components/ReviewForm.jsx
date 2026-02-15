@@ -1,6 +1,7 @@
 import { useForm, Controller } from "react-hook-form";
 import DatePicker from "react-datepicker";
-import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon, ClipboardDocumentListIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import Modal from "./Modal";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createReview, updateReview } from "../api/reviews";
 import useToast from "./useToast";
@@ -36,6 +37,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
   const [lookupsReady, setLookupsReady] = useState(false);
   const [stayAfterSave, setStayAfterSave] = useState(false);
   const [saveAsNew, setSaveAsNew] = useState(false);
+  const [smartPasteOpen, setSmartPasteOpen] = useState(false);
   const firstFieldRef = useRef(null);
 
   useEffect(() => {
@@ -228,225 +230,255 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     try { return new Date(v).toISOString().slice(0, 10); } catch { return String(v); }
   };
 
+  const onSmartPaste = (data) => {
+    // Merge extracted data into form
+    Object.entries(data).forEach(([key, val]) => {
+      if (val) setValue(key, val, { shouldDirty: true, shouldValidate: true });
+    });
+    toast.show("Smart Paste applied!", "success");
+    setSmartPasteOpen(false);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" onKeyDown={(e) => { if (e.key === 'Escape' && onCancel) { e.preventDefault(); toast.show('Cancelled', 'info'); onCancel(); } }}>
-      {/* Order ID */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Order ID</label>
-        <input
-          ref={firstFieldRef}
-          {...register("orderId", {
-            required: true,
-            validate: (v) => (v ?? "").trim().length > 0 || "Order ID cannot be blank"
-          })}
-          className={`w-full rounded-md border ${errors.orderId ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-        />
-        {errors.orderId && (
-          <span className="text-red-500 text-sm">{errors.orderId.message || "Order ID is required."}</span>
-        )}
-      </div>
-
-      {/* Order Link */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Order Link</label>
-        <input {...register("orderLink", { required: true, pattern: /^https?:\/\/.+$/ })}
-          className={`w-full rounded-md border ${errors.orderLink ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} />
-        {errors.orderLink && <span className="text-red-500 text-sm">Valid URL required.</span>}
-      </div>
-
-      {/* Product Name */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Product Name</label>
-        <input
-          {...register("productName", { required: "Product name is required" })}
-          className={`w-full rounded-md border ${errors.productName ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-        />
-        {errors.productName && (
-          <span className="text-red-500 text-sm">{errors.productName.message}</span>
-        )}
-      </div>
-
-      {/* Refund Form URL */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Refund Form URL</label>
-        <input {...register("refundFormUrl", { pattern: /^https?:\/\/.+$/ })}
-          placeholder="Link to order-specific refund form"
-          className={`w-full rounded-md border ${errors.refundFormUrl ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} />
-        {errors.refundFormUrl && <span className="text-red-500 text-sm">Valid URL required (https://...).</span>}
-      </div>
-
-
-      {/* Deal Type & Dropdowns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Deal Type</label>
-          <select {...register("dealType", { required: "Deal type is required" })} className={`w-full rounded-md border ${errors.dealType ? 'border-red-500' : 'border-gray-300'} bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}>
-            <option value="">Select</option>
-            <option value="REVIEW_PUBLISHED">Review Published</option>
-            <option value="REVIEW_SUBMISSION">Review Submission</option>
-            <option value="RATING_ONLY">Rating Only</option>
-          </select>
-          {errors.dealType && <span className="text-red-500 text-sm">{errors.dealType.message}</span>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Platform</label>
-          <Controller
-            name="platformId"
-            control={control}
-            rules={{ required: "Platform is required" }}
-            render={({ field }) => (
-              <PlatformSelect
-                value={field.value}
-                onChange={field.onChange}
-                items={platforms}
-                error={errors.platformId}
-              />
-            )}
-          />
-          {errors.platformId && <span className="text-red-500 text-sm">{errors.platformId.message}</span>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Mediator</label>
-          <Controller
-            name="mediatorId"
-            control={control}
-            rules={{ required: "Mediator is required" }}
-            render={({ field }) => (
-              <MediatorSelect
-                value={field.value}
-                onChange={field.onChange}
-                items={mediators}
-                error={errors.mediatorId}
-              />
-            )}
-          />
-          {errors.mediatorId && <span className="text-red-500 text-sm">{errors.mediatorId.message}</span>}
-        </div>
-      </div>
-
-      {/* Amount & Less */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            {...register("amountRupees", {
-              required: "Amount is required",
-              min: { value: 0, message: "Amount cannot be negative" },
-              valueAsNumber: true,
-            })}
-            className={`w-full rounded-md border ${errors.amountRupees ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-          />
-          {errors.amountRupees && <span className="text-red-500 text-sm">{errors.amountRupees.message}</span>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Less</label>
-          <input
-            type="number"
-            step="0.01"
-            {...register("lessRupees", {
-              min: { value: 0, message: "Less cannot be negative" },
-              validate: (v) => {
-                const less = typeof v === 'number' ? v : parseFloat(v ?? '0');
-                const amt = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
-                if (isFinite(less) && isFinite(amt) && less > amt) return "Less cannot exceed Amount";
-                return true;
-              },
-              valueAsNumber: true,
-            })}
-            className={`w-full rounded-md border ${errors.lessRupees ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-          />
-          {errors.lessRupees && <span className="text-red-500 text-sm">{errors.lessRupees.message}</span>}
-        </div>
-      </div>
-
-      {/* Status + Refund preview */}
-      <div className="flex items-center justify-between text-sm">
-        <div>Current status: <span className="font-medium capitalize">{statusPreview}</span></div>
-        <button type="button" onClick={() => { if (!dealType) { toast.show('Select Deal Type first', 'error'); return; } advanceStatus(); }} disabled={!dealType} className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50">Advance status</button>
-      </div>
-      <div className="text-xs text-gray-500 mt-1">
-        Flow: {dealType === 'REVIEW_PUBLISHED' ? 'Ordered → Delivered → Review Submitted → Review Accepted → Refund Form Submitted → Payment Received'
-          : dealType === 'RATING_ONLY' ? 'Ordered → Delivered → Rating Submitted → Refund Form Submitted → Payment Received'
-            : dealType === 'REVIEW_SUBMISSION' ? 'Ordered → Delivered → Review Submitted → Refund Form Submitted → Payment Received'
-              : 'Select a Deal Type to view steps'}
-        <div>Tip: Advance sets the next missing date to today.</div>
-      </div>
-      <div className={`text-sm ${refundPreview < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-        Refund preview: ₹{Number.isFinite(refundPreview) ? refundPreview.toFixed(2) : '-'}
-      </div>
-
-      {/* Dates */}
-      <div className="space-y-3 bg-gray-50 p-4 rounded-md border border-gray-200">
-        {stepSequence.map((step, idx) => {
-          const val = valueOf(step);
-          if (val && editStep !== step) {
-            return (
-              <div key={step} className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs uppercase text-gray-500 inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-3 h-3 text-gray-400" title={tipOf(step)} /></div>
-                  <div className="font-medium">{fmtDate(val)}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => setEditStep(step)} className="text-gray-700 hover:text-gray-900" title="Edit">
-                    <PencilSquareIcon className="w-4 h-4" />
-                  </button>
-                  <button type="button" onClick={() => resetFrom(step)} className="text-blue-600 hover:text-blue-800" title="Reset from here">
-                    <ArrowPathIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          }
-          if (nextField === step || editStep === step) {
-            return (
-              <div key={step}>
-                <label className="block text-sm font-medium text-gray-700 inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-4 h-4 text-gray-400" title={tipOf(step)} /></label>
-                <Controller name={step} control={control} render={({ field }) => (
-                  <DatePicker
-                    className="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    selected={field.value}
-                    disabled={!dealType}
-                    onChange={(d) => {
-                      // Enforce chronological order: date >= previous step's date
-                      const prevKey = stepSequence[idx - 1];
-                      const prevVal = idx > 0 ? valueOf(prevKey) : null;
-                      if (prevVal && d && new Date(d).getTime() < new Date(prevVal).getTime()) {
-                        toast.show('Date must be same or later than previous step', 'error');
-                        return;
-                      }
-                      field.onChange(d);
-                      resetAfter(step);
-                      setEditStep(null);
-                    }}
-                    dateFormat="yyyy-MM-dd"
-                  />
-                )} />
-              </div>
-            );
-          }
-          return null;
-        })}
-      </div>
-
-      {/* Submit */}
-      <div className="flex justify-end gap-2 pt-2">
-        {onCancel && (
-          <button type="button" className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700" onClick={onCancel}>Cancel</button>
-        )}
+    <div className="relative">
+      <div className="flex justify-end mb-2">
         <button
           type="button"
-          className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
-          onClick={handleSubmit((form) => onSubmit(form, { stay: true, asNew: !!review }))}
+          onClick={() => setSmartPasteOpen(true)}
+          className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors"
         >
-          Save & Add Another
-        </button>
-        <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow">
-          {review ? "Update Review" : "Create Review"}
+          <SparklesIcon className="w-4 h-4" />
+          <span>Smart Paste</span>
         </button>
       </div>
-    </form>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" onKeyDown={(e) => { if (e.key === 'Escape' && onCancel) { e.preventDefault(); toast.show('Cancelled', 'info'); onCancel(); } }}>
+        {/* Order ID */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Order ID</label>
+          <input
+            ref={firstFieldRef}
+            {...register("orderId", {
+              required: true,
+              validate: (v) => (v ?? "").trim().length > 0 || "Order ID cannot be blank"
+            })}
+            className={`w-full rounded-md border ${errors.orderId ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
+          />
+          {errors.orderId && (
+            <span className="text-red-500 text-sm">{errors.orderId.message || "Order ID is required."}</span>
+          )}
+        </div>
+
+        {/* Order Link */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Order Link</label>
+          <input {...register("orderLink", { required: true, pattern: /^https?:\/\/.+$/ })}
+            className={`w-full rounded-md border ${errors.orderLink ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} />
+          {errors.orderLink && <span className="text-red-500 text-sm">Valid URL required.</span>}
+        </div>
+
+        {/* Product Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Product Name</label>
+          <input
+            {...register("productName", { required: "Product name is required" })}
+            className={`w-full rounded-md border ${errors.productName ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
+          />
+          {errors.productName && (
+            <span className="text-red-500 text-sm">{errors.productName.message}</span>
+          )}
+        </div>
+
+        {/* Refund Form URL */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Refund Form URL</label>
+          <input {...register("refundFormUrl", { pattern: /^https?:\/\/.+$/ })}
+            placeholder="Link to order-specific refund form"
+            className={`w-full rounded-md border ${errors.refundFormUrl ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`} />
+          {errors.refundFormUrl && <span className="text-red-500 text-sm">Valid URL required (https://...).</span>}
+        </div>
+
+
+        {/* Deal Type & Dropdowns */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Deal Type</label>
+            <select {...register("dealType", { required: "Deal type is required" })} className={`w-full rounded-md border ${errors.dealType ? 'border-red-500' : 'border-gray-300'} bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}>
+              <option value="">Select</option>
+              <option value="REVIEW_PUBLISHED">Review Published</option>
+              <option value="REVIEW_SUBMISSION">Review Submission</option>
+              <option value="RATING_ONLY">Rating Only</option>
+            </select>
+            {errors.dealType && <span className="text-red-500 text-sm">{errors.dealType.message}</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Platform</label>
+            <Controller
+              name="platformId"
+              control={control}
+              rules={{ required: "Platform is required" }}
+              render={({ field }) => (
+                <PlatformSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  items={platforms}
+                  error={errors.platformId}
+                />
+              )}
+            />
+            {errors.platformId && <span className="text-red-500 text-sm">{errors.platformId.message}</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Mediator</label>
+            <Controller
+              name="mediatorId"
+              control={control}
+              rules={{ required: "Mediator is required" }}
+              render={({ field }) => (
+                <MediatorSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  items={mediators}
+                  error={errors.mediatorId}
+                />
+              )}
+            />
+            {errors.mediatorId && <span className="text-red-500 text-sm">{errors.mediatorId.message}</span>}
+          </div>
+        </div>
+
+        {/* Amount & Less */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Amount</label>
+            <input
+              type="number"
+              step="0.01"
+              {...register("amountRupees", {
+                required: "Amount is required",
+                min: { value: 0, message: "Amount cannot be negative" },
+                valueAsNumber: true,
+              })}
+              className={`w-full rounded-md border ${errors.amountRupees ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
+            />
+            {errors.amountRupees && <span className="text-red-500 text-sm">{errors.amountRupees.message}</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Less</label>
+            <input
+              type="number"
+              step="0.01"
+              {...register("lessRupees", {
+                min: { value: 0, message: "Less cannot be negative" },
+                validate: (v) => {
+                  const less = typeof v === 'number' ? v : parseFloat(v ?? '0');
+                  const amt = typeof amountValue === 'number' ? amountValue : parseFloat(amountValue ?? '0');
+                  if (isFinite(less) && isFinite(amt) && less > amt) return "Less cannot exceed Amount";
+                  return true;
+                },
+                valueAsNumber: true,
+              })}
+              className={`w-full rounded-md border ${errors.lessRupees ? 'border-red-500' : 'border-gray-300'} bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
+            />
+            {errors.lessRupees && <span className="text-red-500 text-sm">{errors.lessRupees.message}</span>}
+          </div>
+        </div>
+
+        {/* Status + Refund preview */}
+        <div className="flex items-center justify-between text-sm">
+          <div>Current status: <span className="font-medium capitalize">{statusPreview}</span></div>
+          <button type="button" onClick={() => { if (!dealType) { toast.show('Select Deal Type first', 'error'); return; } advanceStatus(); }} disabled={!dealType} className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50">Advance status</button>
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          Flow: {dealType === 'REVIEW_PUBLISHED' ? 'Ordered → Delivered → Review Submitted → Review Accepted → Refund Form Submitted → Payment Received'
+            : dealType === 'RATING_ONLY' ? 'Ordered → Delivered → Rating Submitted → Refund Form Submitted → Payment Received'
+              : dealType === 'REVIEW_SUBMISSION' ? 'Ordered → Delivered → Review Submitted → Refund Form Submitted → Payment Received'
+                : 'Select a Deal Type to view steps'}
+          <div>Tip: Advance sets the next missing date to today.</div>
+        </div>
+        <div className={`text-sm ${refundPreview < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+          Refund preview: ₹{Number.isFinite(refundPreview) ? refundPreview.toFixed(2) : '-'}
+        </div>
+
+        {/* Dates */}
+        <div className="space-y-3 bg-gray-50 p-4 rounded-md border border-gray-200">
+          {stepSequence.map((step, idx) => {
+            const val = valueOf(step);
+            if (val && editStep !== step) {
+              return (
+                <div key={step} className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs uppercase text-gray-500 inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-3 h-3 text-gray-400" title={tipOf(step)} /></div>
+                    <div className="font-medium">{fmtDate(val)}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setEditStep(step)} className="text-gray-700 hover:text-gray-900" title="Edit">
+                      <PencilSquareIcon className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => resetFrom(step)} className="text-blue-600 hover:text-blue-800" title="Reset from here">
+                      <ArrowPathIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+            if (nextField === step || editStep === step) {
+              return (
+                <div key={step}>
+                  <label className="block text-sm font-medium text-gray-700 inline-flex items-center gap-1">{labelOf(step)}<InformationCircleIcon className="w-4 h-4 text-gray-400" title={tipOf(step)} /></label>
+                  <Controller name={step} control={control} render={({ field }) => (
+                    <DatePicker
+                      className="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      selected={field.value}
+                      disabled={!dealType}
+                      onChange={(d) => {
+                        // Enforce chronological order: date >= previous step's date
+                        const prevKey = stepSequence[idx - 1];
+                        const prevVal = idx > 0 ? valueOf(prevKey) : null;
+                        if (prevVal && d && new Date(d).getTime() < new Date(prevVal).getTime()) {
+                          toast.show('Date must be same or later than previous step', 'error');
+                          return;
+                        }
+                        field.onChange(d);
+                        resetAfter(step);
+                        setEditStep(null);
+                      }}
+                      dateFormat="yyyy-MM-dd"
+                    />
+                  )} />
+                </div>
+              );
+            }
+            return null;
+          })}
+        </div>
+
+        {/* Submit */}
+        <div className="flex justify-end gap-2 pt-2">
+          {onCancel && (
+            <button type="button" className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700" onClick={onCancel}>Cancel</button>
+          )}
+          <button
+            type="button"
+            className="px-3 py-2 border rounded-md border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+            onClick={handleSubmit((form) => onSubmit(form, { stay: true, asNew: !!review }))}
+          >
+            Save & Add Another
+          </button>
+          <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow">
+            {review ? "Update Review" : "Create Review"}
+          </button>
+        </div>
+      </form>
+
+      <SmartPasteModal
+        open={smartPasteOpen}
+        onClose={() => setSmartPasteOpen(false)}
+        onApply={onSmartPaste}
+        platforms={platforms}
+        mediators={mediators}
+      />
+    </div>
   );
 }
 
@@ -633,5 +665,133 @@ function PlatformSelect({ value, onChange, items, error }) {
         </div>
       )}
     </div>
+  );
+}
+
+function SmartPasteModal({ open, onClose, onApply, platforms, mediators }) {
+  const [text, setText] = useState("");
+  const [parsed, setParsed] = useState({});
+
+  useEffect(() => {
+    if (open) {
+      setText("");
+      setParsed({});
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!text.trim()) {
+      setParsed({});
+      return;
+    }
+
+    const res = {};
+
+    // 1. Order ID (e.g. 404-1234567-1234567)
+    const orderMatch = text.match(/\b\d{3}-\d{7}-\d{7}\b/);
+    if (orderMatch) res.orderId = orderMatch[0];
+
+    // 2. Amount (e.g. Rs 1,299 or just numbers with keywords)
+    // simplistic approach: look for 'price' or 'total' or 'rs' line line
+    const lines = text.split('\n');
+    let amountFound = null;
+
+    // Scan for regex currency
+    const priceRegex = /(?:rs\.?|₹)\s*([\d,]+(\.\d{2})?)/i;
+    const priceMatch = text.match(priceRegex);
+    if (priceMatch) {
+      amountFound = parseFloat(priceMatch[1].replace(/,/g, ''));
+    }
+
+    if (!amountFound) {
+      // fallback: crude scan for likely price numbers in lines with keywords
+      for (const line of lines) {
+        if (/price|total|cost|amount/i.test(line)) {
+          const m = line.match(/([\d,]+(\.\d{2})?)/);
+          if (m) {
+            const val = parseFloat(m[1].replace(/,/g, ''));
+            if (val > 0) { amountFound = val; break; }
+          }
+        }
+      }
+    }
+    if (amountFound) res.amountRupees = amountFound;
+
+    // 3. Platform
+    const lowerText = text.toLowerCase();
+    const foundPlatform = (platforms || []).find(p => lowerText.includes(p.name.toLowerCase()));
+    if (foundPlatform) res.platformId = foundPlatform.id;
+    else if (lowerText.includes("amazon")) {
+      const p = (platforms || []).find(x => x.name.toLowerCase().includes("amazon"));
+      if (p) res.platformId = p.id;
+    } else if (lowerText.includes("flipkart")) {
+      const p = (platforms || []).find(x => x.name.toLowerCase().includes("flipkart"));
+      if (p) res.platformId = p.id;
+    }
+
+    // 4. Mediator
+    const foundMediator = (mediators || []).find(m => lowerText.includes(m.name.toLowerCase()));
+    if (foundMediator) res.mediatorId = foundMediator.id;
+
+    // 5. Product Name (hardest)
+    // heuristic: find line starting with "Product:" or "Item:"
+    for (const line of lines) {
+      if (/^(product|item)\s*[:\-]\s*(.+)/i.test(line)) {
+        res.productName = line.replace(/^(product|item)\s*[:\-]\s*/i, '').trim();
+        break;
+      }
+    }
+
+    setParsed(res);
+  }, [text, platforms, mediators]);
+
+  const preview = Object.entries(parsed).filter(([_, v]) => v).map(([k, v]) => {
+    if (k === 'platformId') return ['Platform', (platforms.find(p => p.id === v)?.name) || v];
+    if (k === 'mediatorId') return ['Mediator', (mediators.find(m => m.id === v)?.name) || v];
+    return [k, v];
+  });
+
+  return (
+    <Modal open={open} onClose={onClose} title="Smart Paste">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600">
+          Paste order details (e.g. from WhatsApp/Email) below to auto-fill.
+        </p>
+        <textarea
+          className="w-full h-32 border rounded p-2 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500"
+          placeholder={"Order ID: 123-4567890-1234567\nProduct: Wireless Earbuds\nPrice: 1599\nPlatform: Amazon"}
+          value={text}
+          onChange={e => setText(e.target.value)}
+          autoFocus
+        />
+
+        <div className="bg-gray-50 p-3 rounded border">
+          <div className="text-xs font-semibold text-gray-500 mb-2">DETECTED FIELDS</div>
+          {preview.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {preview.map(([k, v]) => (
+                <div key={k}>
+                  <span className="text-gray-500 capitalize">{k.replace(/([A-Z])/g, ' $1')}:</span> <span className="font-medium text-gray-900">{v}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400 italic">No details detected yet...</div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-3 py-1.5 border rounded text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button
+            onClick={() => onApply(parsed)}
+            disabled={Object.keys(parsed).length === 0}
+            className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <SparklesIcon className="w-4 h-4" />
+            Apply
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }

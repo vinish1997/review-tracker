@@ -8,6 +8,7 @@ import Reviews from "./pages/Reviews";
 import Lookups from "./pages/Lookups";
 import Archive from "./pages/Archive";
 import Notifications from "./pages/Notifications";
+import NotificationRules from "./pages/NotificationRules";
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
               <Route path="/lookups" element={<Lookups />} />
               <Route path="/archive" element={<Archive />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/notification-rules" element={<NotificationRules />} />
               <Route path="/shared/:slug" element={<SharedView />} />
             </Routes>
           </main>

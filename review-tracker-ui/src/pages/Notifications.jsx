@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getNotifications } from "../api/reviews";
-import { useNavigate } from "react-router-dom";
-import { BellIcon, ExclamationTriangleIcon, InformationCircleIcon, ClockIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { Link, useNavigate } from "react-router-dom";
+import { BellIcon, ExclamationTriangleIcon, InformationCircleIcon, ClockIcon, ChevronRightIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 
 export default function Notifications() {
     const [notifications, setNotifications] = useState([]);
@@ -28,9 +28,15 @@ export default function Notifications() {
 
     return (
         <div className="max-w-3xl mx-auto pb-20">
-            <div className="p-6 rounded-t-xl bg-gradient-to-r from-indigo-50 via-white to-emerald-50">
-                <h2 className="text-2xl font-bold text-gray-900">Notifications</h2>
-                <p className="text-gray-600">Proactive reminders for your reviews and refunds</p>
+            <div className="p-6 rounded-t-xl bg-gradient-to-r from-indigo-50 via-white to-emerald-50 flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Notifications</h2>
+                    <p className="text-gray-600">Proactive reminders for your reviews and refunds</p>
+                </div>
+                <Link to="/notification-rules" className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 bg-white px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm">
+                    <Cog6ToothIcon className="w-4 h-4" />
+                    <span>Rules</span>
+                </Link>
             </div>
 
             <div className="bg-white rounded-b-xl shadow-sm border border-t-0 p-2 space-y-2">
@@ -50,8 +56,8 @@ export default function Notifications() {
                             className="w-full text-left p-4 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all flex gap-4 items-start group"
                         >
                             <div className={`p-2 rounded-lg shrink-0 ${n.type === 'URGENT' ? 'bg-red-50 text-red-600' :
-                                    n.type === 'WARNING' ? 'bg-orange-50 text-orange-600' :
-                                        'bg-blue-50 text-blue-600'
+                                n.type === 'WARNING' ? 'bg-orange-50 text-orange-600' :
+                                    'bg-blue-50 text-blue-600'
                                 }`}>
                                 {n.type === 'URGENT' ? <ExclamationTriangleIcon className="w-5 h-5" /> :
                                     n.type === 'WARNING' ? <ClockIcon className="w-5 h-5" /> :

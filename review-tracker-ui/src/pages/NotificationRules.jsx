@@ -37,7 +37,7 @@ export default function NotificationRules() {
             await axios.delete(`${API_BASE}/${id}`);
             toast.show("Rule deleted", "success");
             fetchRules();
-        } catch (err) {
+        } catch (error) {
             toast.show("Failed to delete rule", "error");
         }
     };

@@ -134,6 +134,28 @@ export default function ReviewTable() {
   }, [mediators, mediatorQuery]);
   const fromDraftDate = dateRangeDraft.from ? new Date(dateRangeDraft.from) : null;
   const toDraftDate = dateRangeDraft.to ? new Date(dateRangeDraft.to) : null;
+  const nextFieldFor = useCallback((r) => {
+    const base = ['orderedDate', 'deliveryDate'];
+    const type = r.dealType || 'REVIEW_SUBMISSION';
+    const seq = type === 'REVIEW_PUBLISHED'
+      ? [...base, 'reviewSubmitDate', 'reviewAcceptedDate', 'refundFormSubmittedDate', 'paymentReceivedDate']
+      : type === 'RATING_ONLY'
+        ? [...base, 'ratingSubmittedDate', 'refundFormSubmittedDate', 'paymentReceivedDate']
+        : [...base, 'reviewSubmitDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
+    for (const k of seq) if (!r[k]) return k;
+    return null;
+  }, []);
+
+  const isOverdue = useCallback((r) => {
+    if (!r.deliveryDate) return false;
+    const nf = nextFieldFor(r);
+    if (!nf) return false;
+    const d = new Date(r.deliveryDate);
+    if (Number.isNaN(d.getTime())) return false;
+    const days = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
+    return days > 7;
+  }, [nextFieldFor]);
+
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -464,27 +486,7 @@ export default function ReviewTable() {
     });
   };
 
-  const nextFieldFor = useCallback((r) => {
-    const base = ['orderedDate', 'deliveryDate'];
-    const type = r.dealType || 'REVIEW_SUBMISSION';
-    const seq = type === 'REVIEW_PUBLISHED'
-      ? [...base, 'reviewSubmitDate', 'reviewAcceptedDate', 'refundFormSubmittedDate', 'paymentReceivedDate']
-      : type === 'RATING_ONLY'
-        ? [...base, 'ratingSubmittedDate', 'refundFormSubmittedDate', 'paymentReceivedDate']
-        : [...base, 'reviewSubmitDate', 'refundFormSubmittedDate', 'paymentReceivedDate'];
-    for (const k of seq) if (!r[k]) return k;
-    return null;
-  }, []);
 
-  const isOverdue = useCallback((r) => {
-    if (!r.deliveryDate) return false;
-    const nf = nextFieldFor(r);
-    if (!nf) return false;
-    const d = new Date(r.deliveryDate);
-    if (Number.isNaN(d.getTime())) return false;
-    const days = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
-    return days > 7;
-  }, [nextFieldFor]);
 
   const duplicateRow = (r) => {
     const clean = {

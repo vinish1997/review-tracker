@@ -1,6 +1,6 @@
 import { useForm, Controller } from "react-hook-form";
 import DatePicker from "react-datepicker";
-import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon, ClipboardDocumentListIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { InformationCircleIcon, PencilSquareIcon, ArrowPathIcon, ChevronDownIcon, XMarkIcon, ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 import Modal from "./Modal";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createReview, updateReview } from "../api/reviews";
@@ -37,7 +37,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
   const [lookupsReady, setLookupsReady] = useState(false);
   const [stayAfterSave, setStayAfterSave] = useState(false);
   const [saveAsNew, setSaveAsNew] = useState(false);
-  const [smartPasteOpen, setSmartPasteOpen] = useState(false);
+
   const firstFieldRef = useRef(null);
 
   useEffect(() => {
@@ -230,27 +230,11 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
     try { return new Date(v).toISOString().slice(0, 10); } catch { return String(v); }
   };
 
-  const onSmartPaste = (data) => {
-    // Merge extracted data into form
-    Object.entries(data).forEach(([key, val]) => {
-      if (val) setValue(key, val, { shouldDirty: true, shouldValidate: true });
-    });
-    toast.show("Smart Paste applied!", "success");
-    setSmartPasteOpen(false);
-  };
+
 
   return (
     <div className="relative">
-      <div className="flex justify-end mb-2">
-        <button
-          type="button"
-          onClick={() => setSmartPasteOpen(true)}
-          className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors"
-        >
-          <SparklesIcon className="w-4 h-4" />
-          <span>Smart Paste</span>
-        </button>
-      </div>
+
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" onKeyDown={(e) => { if (e.key === 'Escape' && onCancel) { e.preventDefault(); toast.show('Cancelled', 'info'); onCancel(); } }}>
         {/* Order ID */}
@@ -471,13 +455,7 @@ export default function ReviewForm({ review, initialValues, onSuccess, onCancel 
         </div>
       </form>
 
-      <SmartPasteModal
-        open={smartPasteOpen}
-        onClose={() => setSmartPasteOpen(false)}
-        onApply={onSmartPaste}
-        platforms={platforms}
-        mediators={mediators}
-      />
+
     </div>
   );
 }
@@ -668,130 +646,4 @@ function PlatformSelect({ value, onChange, items, error }) {
   );
 }
 
-function SmartPasteModal({ open, onClose, onApply, platforms, mediators }) {
-  const [text, setText] = useState("");
-  const [parsed, setParsed] = useState({});
 
-  useEffect(() => {
-    if (open) {
-      setText("");
-      setParsed({});
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!text.trim()) {
-      setParsed({});
-      return;
-    }
-
-    const res = {};
-
-    // 1. Order ID (e.g. 404-1234567-1234567)
-    const orderMatch = text.match(/\b\d{3}-\d{7}-\d{7}\b/);
-    if (orderMatch) res.orderId = orderMatch[0];
-
-    // 2. Amount (e.g. Rs 1,299 or just numbers with keywords)
-    // simplistic approach: look for 'price' or 'total' or 'rs' line line
-    const lines = text.split('\n');
-    let amountFound = null;
-
-    // Scan for regex currency
-    const priceRegex = /(?:rs\.?|₹)\s*([\d,]+(\.\d{2})?)/i;
-    const priceMatch = text.match(priceRegex);
-    if (priceMatch) {
-      amountFound = parseFloat(priceMatch[1].replace(/,/g, ''));
-    }
-
-    if (!amountFound) {
-      // fallback: crude scan for likely price numbers in lines with keywords
-      for (const line of lines) {
-        if (/price|total|cost|amount/i.test(line)) {
-          const m = line.match(/([\d,]+(\.\d{2})?)/);
-          if (m) {
-            const val = parseFloat(m[1].replace(/,/g, ''));
-            if (val > 0) { amountFound = val; break; }
-          }
-        }
-      }
-    }
-    if (amountFound) res.amountRupees = amountFound;
-
-    // 3. Platform
-    const lowerText = text.toLowerCase();
-    const foundPlatform = (platforms || []).find(p => lowerText.includes(p.name.toLowerCase()));
-    if (foundPlatform) res.platformId = foundPlatform.id;
-    else if (lowerText.includes("amazon")) {
-      const p = (platforms || []).find(x => x.name.toLowerCase().includes("amazon"));
-      if (p) res.platformId = p.id;
-    } else if (lowerText.includes("flipkart")) {
-      const p = (platforms || []).find(x => x.name.toLowerCase().includes("flipkart"));
-      if (p) res.platformId = p.id;
-    }
-
-    // 4. Mediator
-    const foundMediator = (mediators || []).find(m => lowerText.includes(m.name.toLowerCase()));
-    if (foundMediator) res.mediatorId = foundMediator.id;
-
-    // 5. Product Name (hardest)
-    // heuristic: find line starting with "Product:" or "Item:"
-    for (const line of lines) {
-      if (/^(product|item)\s*[:\-]\s*(.+)/i.test(line)) {
-        res.productName = line.replace(/^(product|item)\s*[:\-]\s*/i, '').trim();
-        break;
-      }
-    }
-
-    setParsed(res);
-  }, [text, platforms, mediators]);
-
-  const preview = Object.entries(parsed).filter(([_, v]) => v).map(([k, v]) => {
-    if (k === 'platformId') return ['Platform', (platforms.find(p => p.id === v)?.name) || v];
-    if (k === 'mediatorId') return ['Mediator', (mediators.find(m => m.id === v)?.name) || v];
-    return [k, v];
-  });
-
-  return (
-    <Modal open={open} onClose={onClose} title="Smart Paste">
-      <div className="space-y-4">
-        <p className="text-sm text-gray-600">
-          Paste order details (e.g. from WhatsApp/Email) below to auto-fill.
-        </p>
-        <textarea
-          className="w-full h-32 border rounded p-2 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500"
-          placeholder={"Order ID: 123-4567890-1234567\nProduct: Wireless Earbuds\nPrice: 1599\nPlatform: Amazon"}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          autoFocus
-        />
-
-        <div className="bg-gray-50 p-3 rounded border">
-          <div className="text-xs font-semibold text-gray-500 mb-2">DETECTED FIELDS</div>
-          {preview.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {preview.map(([k, v]) => (
-                <div key={k}>
-                  <span className="text-gray-500 capitalize">{k.replace(/([A-Z])/g, ' $1')}:</span> <span className="font-medium text-gray-900">{v}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-gray-400 italic">No details detected yet...</div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-3 py-1.5 border rounded text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-          <button
-            onClick={() => onApply(parsed)}
-            disabled={Object.keys(parsed).length === 0}
-            className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <SparklesIcon className="w-4 h-4" />
-            Apply
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}

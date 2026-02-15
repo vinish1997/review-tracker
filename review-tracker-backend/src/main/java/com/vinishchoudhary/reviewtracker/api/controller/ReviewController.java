@@ -252,5 +252,9 @@ public class ReviewController {
         return ResponseEntity.ok(java.util.Map.of("overdue", c));
     }
 
-    // Dashboard and dashboard-related stats endpoints removed for redesign
+    // ---------- Dashboard ----------
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<com.vinishchoudhary.reviewtracker.api.dto.DashboardStats> getDashboardStats() {
+        return ResponseEntity.ok(reviewService.getDashboardStats());
+    }
 }

@@ -1,5 +1,7 @@
 package com.vinishchoudhary.reviewtracker.service;
 
+import com.vinishchoudhary.reviewtracker.api.dto.DashboardStats;
+
 import com.vinishchoudhary.reviewtracker.domain.model.Review;
 import com.vinishchoudhary.reviewtracker.domain.model.ReviewHistory;
 import com.vinishchoudhary.reviewtracker.repository.ReviewRepository;
@@ -13,8 +15,8 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -105,6 +107,85 @@ public class ReviewService {
     public long overdueCount() {
         java.time.LocalDate threshold = java.time.LocalDate.now().minusDays(7);
         return reviewRepo.countByDeliveryDateBeforeAndPaymentReceivedDateIsNull(threshold);
+    }
+
+    public DashboardStats getDashboardStats() {
+        LocalDate today = LocalDate.now();
+        List<Review> all = reviewRepo.findAll();
+
+        long pendingReview = 0;
+        long pendingRefund = 0;
+        long pendingPayment = 0;
+        long overdue = 0;
+        BigDecimal totalSpent = BigDecimal.ZERO;
+        BigDecimal totalRefunded = BigDecimal.ZERO;
+        BigDecimal pendingRefundAmount = BigDecimal.ZERO;
+
+        List<DashboardStats.ActionItem> actions = new ArrayList<>();
+
+        for (Review r : all) {
+            String status = r.getStatus();
+
+            // Counts
+            if ("ordered".equals(status) || "delivered".equals(status))
+                pendingReview++;
+            else if ("review submitted".equals(status) || "review accepted".equals(status)
+                    || "rating submitted".equals(status)) {
+                if (r.getRefundFormSubmittedDate() == null)
+                    pendingRefund++;
+            }
+            if ("refund form submitted".equals(status))
+                pendingPayment++;
+
+            // Overdue (delivered > 7 days ago and no payment)
+            if (r.getDeliveryDate() != null && r.getPaymentReceivedDate() == null) {
+                if (ChronoUnit.DAYS.between(r.getDeliveryDate(), today) > 7)
+                    overdue++;
+            }
+
+            // Financials
+            if (r.getAmountRupees() != null)
+                totalSpent = totalSpent.add(r.getAmountRupees());
+            if (r.getRefundAmountRupees() != null && r.getPaymentReceivedDate() != null) {
+                totalRefunded = totalRefunded.add(r.getRefundAmountRupees());
+            }
+            if (r.getRefundAmountRupees() != null && r.getPaymentReceivedDate() == null) {
+                pendingRefundAmount = pendingRefundAmount.add(r.getRefundAmountRupees());
+            }
+
+            // Action Items (Simple heuristics for now, can be aligned with
+            // NotificationRules later)
+            if (r.getDeliveryDate() != null && r.getReviewSubmitDate() == null) {
+                long days = ChronoUnit.DAYS.between(r.getDeliveryDate(), today);
+                if (days > 3) {
+                    actions.add(DashboardStats.ActionItem.builder()
+                            .id(r.getId())
+                            .type(days > 7 ? "URGENT" : "WARNING")
+                            .message("Submit review for " + r.getProductName() + " (Delivered " + days + " days ago)")
+                            .link("/reviews/edit/" + r.getId())
+                            .build());
+                }
+            }
+        }
+
+        // Sort actions by urgency/freshness?
+        // limiting to 5 for now
+        if (actions.size() > 5)
+            actions = actions.subList(0, 5);
+
+        return DashboardStats.builder()
+                .totalReviews(all.size())
+                .pendingReviewRating(pendingReview)
+                .pendingRefundForm(pendingRefund)
+                .pendingPayment(pendingPayment)
+                .overdue(overdue)
+                .totalSpent(totalSpent)
+                .totalRefunded(totalRefunded)
+                .netCost(totalSpent.subtract(totalRefunded)) // this is gross net, actual net cost is totalSpent -
+                                                             // totalExpectedRefund
+                .pendingRefundAmount(pendingRefundAmount)
+                .actionItems(actions)
+                .build();
     }
 
     // ---------- Advance ----------
@@ -518,25 +599,6 @@ public class ReviewService {
     }
 
     // Dashboard and related stats removed for redesign
-
-    private static long diffDays(java.time.LocalDate from, java.time.LocalDate to) {
-        return java.time.temporal.ChronoUnit.DAYS.between(from, to);
-    }
-
-    private static java.time.LocalDate previousDateForNext(Review r, String nextField) {
-        java.util.List<String> seq = sequenceFor(r.getDealType());
-        int idx = seq.indexOf(nextField);
-        if (idx <= 0)
-            return null;
-        String prev = seq.get(idx - 1);
-        return getField(r, prev);
-    }
-
-    private static Double average(java.util.List<Long> values) {
-        if (values == null || values.isEmpty())
-            return 0.0;
-        return values.stream().mapToLong(Long::longValue).average().orElse(0.0);
-    }
 
     private String computeStatus(Review r) {
         if (r.getPaymentReceivedDate() != null)

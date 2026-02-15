@@ -30,6 +30,7 @@ export const importCsv = (file) => {
 export const bulkDelete = (ids) => axios.post(`${API_BASE}/bulk-delete`, ids);
 export const aggregates = (criteria) => axios.get(`${API_BASE}/aggregates`, { params: toQuery(criteria) });
 export const overdueCount = () => axios.get(`${API_BASE}/metrics/overdue-count`);
+export const getDashboardStats = () => axios.get(`${API_BASE}/dashboard-stats`);
 
 // Advance next step endpoints
 export const advanceReview = (id, date) => axios.post(`${API_BASE}/${id}/advance`, { date });

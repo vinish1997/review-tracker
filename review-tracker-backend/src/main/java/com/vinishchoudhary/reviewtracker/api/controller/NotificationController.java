@@ -4,6 +4,7 @@ import com.vinishchoudhary.reviewtracker.domain.model.Review;
 import com.vinishchoudhary.reviewtracker.repository.ReviewRepository;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,19 +39,19 @@ public class NotificationController {
 
     @PostMapping("/rules")
     public com.vinishchoudhary.reviewtracker.domain.model.NotificationRule createRule(
-            @RequestBody com.vinishchoudhary.reviewtracker.domain.model.NotificationRule rule) {
+            @RequestBody @NonNull com.vinishchoudhary.reviewtracker.domain.model.NotificationRule rule) {
         return ruleRepo.save(rule);
     }
 
     @PutMapping("/rules/{id}")
-    public com.vinishchoudhary.reviewtracker.domain.model.NotificationRule updateRule(@PathVariable String id,
-            @RequestBody com.vinishchoudhary.reviewtracker.domain.model.NotificationRule rule) {
+    public com.vinishchoudhary.reviewtracker.domain.model.NotificationRule updateRule(@PathVariable @NonNull String id,
+            @RequestBody @NonNull com.vinishchoudhary.reviewtracker.domain.model.NotificationRule rule) {
         rule.setId(id);
         return ruleRepo.save(rule);
     }
 
     @DeleteMapping("/rules/{id}")
-    public void deleteRule(@PathVariable String id) {
+    public void deleteRule(@PathVariable @NonNull String id) {
         ruleRepo.deleteById(id);
     }
 

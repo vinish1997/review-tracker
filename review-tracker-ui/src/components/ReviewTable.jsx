@@ -10,6 +10,8 @@ import useToast from "./useToast";
 import { PlusIcon, PencilSquareIcon, TrashIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentDuplicateIcon, EllipsisVerticalIcon, ClipboardDocumentIcon, ArrowTopRightOnSquareIcon, ChatBubbleLeftRightIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, CheckCircleIcon, XMarkIcon, Squares2X2Icon, TagIcon, UserGroupIcon, ListBulletIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import DatePicker from "react-datepicker";
 import { formatCurrencyINR as formatCurrency, formatDate } from "../utils/format";
+import ReviewCard from "./ReviewCard";
+import FAB from "./FAB";
 
 export default function ReviewTable() {
   const [reviews, setReviews] = useState([]);
@@ -1086,10 +1088,28 @@ export default function ReviewTable() {
             </div>
           </div>
 
+          {/* Mobile Card List */}
+          <div className="md:hidden space-y-3 pb-20">
+            {reviews.map(r => (
+              <div key={r.id}>
+                <ReviewCard
+                  review={r}
+                  renderCell={(k) => renderCell(k, r)}
+                  onEdit={(row) => navigate(`/reviews/edit/${row.id}`)}
+                  onDelete={() => handleDelete(r.id)}
+                  onNavigate={(row) => navigate(`/reviews/view/${row.id}`)}
+                />
+              </div>
+            ))}
+            {reviews.length === 0 && !loading && (
+              <div className="text-center py-10 text-gray-500">No reviews found.</div>
+            )}
+          </div>
+
           {/* Table */}
           <div
             ref={tableWrapRef}
-            className="relative rounded shadow overflow-auto pb-12 md:pb-0"
+            className="hidden md:block relative rounded shadow overflow-auto pb-12 md:pb-0"
             style={{
               // Give the table its own scrollable area so sticky header/virtualization work reliably
               maxHeight: '70vh',
@@ -1371,6 +1391,7 @@ export default function ReviewTable() {
           }
         }}
       />
+      <FAB />
     </div>
   );
 }
@@ -1453,6 +1474,10 @@ function Shortcuts({ onAdvance, onFocusSearch, onDelete }) {
     return () => document.removeEventListener('keydown', handler);
   }, [onAdvance, onFocusSearch, onDelete]);
   return null;
+}
+
+function FABWrapper() {
+  return <FAB />;
 }
 
 function dealTypeLabel(code) {

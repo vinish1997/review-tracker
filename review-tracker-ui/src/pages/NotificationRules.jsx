@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { PlusIcon, TrashIcon, PencilSquareIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
@@ -15,11 +15,7 @@ export default function NotificationRules() {
     const [editingRule, setEditingRule] = useState(null);
     const toast = useToast();
 
-    useEffect(() => {
-        fetchRules();
-    }, []);
-
-    const fetchRules = async () => {
+    const fetchRules = useCallback(async () => {
         try {
             const res = await axios.get(API_BASE);
             setRules(res.data);
@@ -29,7 +25,11 @@ export default function NotificationRules() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
+
+    useEffect(() => {
+        fetchRules();
+    }, [fetchRules]);
 
     const handleDelete = async (id) => {
         if (!window.confirm("Delete this rule?")) return;
@@ -38,6 +38,7 @@ export default function NotificationRules() {
             toast.show("Rule deleted", "success");
             fetchRules();
         } catch (error) {
+            console.error(error);
             toast.show("Failed to delete rule", "error");
         }
     };

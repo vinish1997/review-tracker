@@ -6,6 +6,7 @@ import com.vinishchoudhary.reviewtracker.domain.model.Review;
 import com.vinishchoudhary.reviewtracker.domain.model.ReviewHistory;
 import com.vinishchoudhary.reviewtracker.repository.ReviewRepository;
 import com.vinishchoudhary.reviewtracker.repository.ReviewSearchCriteria;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -45,7 +46,7 @@ public class ReviewService {
         return saved;
     }
 
-    public Review updateReview(String id, Review updated) {
+    public Review updateReview(@NonNull String id, Review updated) {
         Review existing = reviewRepo.findById(id).orElseThrow();
         List<ReviewHistory.Change> changes = new ArrayList<>();
 
@@ -90,7 +91,7 @@ public class ReviewService {
         return saved;
     }
 
-    public void deleteReview(String id) {
+    public void deleteReview(@NonNull String id) {
         reviewRepo.deleteById(id);
         historyService.logChange(id, "DELETE", "Deleted review", null);
     }
@@ -189,7 +190,7 @@ public class ReviewService {
     }
 
     // ---------- Advance ----------
-    public Review advanceNext(String id, LocalDate date) {
+    public Review advanceNext(@NonNull String id, LocalDate date) {
         Review r = reviewRepo.findById(id).orElseThrow();
         LocalDate when = date != null ? date : LocalDate.now();
 
@@ -209,7 +210,7 @@ public class ReviewService {
         return saved;
     }
 
-    public List<Review> bulkAdvanceNext(List<String> ids, LocalDate date) {
+    public List<Review> bulkAdvanceNext(@NonNull List<String> ids, LocalDate date) {
         List<Review> out = new ArrayList<>();
         for (String id : ids) {
             out.add(advanceNext(id, date));
@@ -265,7 +266,6 @@ public class ReviewService {
     }
 
     private static List<String> sequenceFor(String dealType) {
-        List<String> base = List.of("orderedDate", "deliveryDate");
         String dt = dealType == null ? "REVIEW_SUBMISSION" : dealType;
         switch (dt) {
             case "REVIEW_PUBLISHED":
@@ -301,12 +301,12 @@ public class ReviewService {
         }
     }
 
-    public Optional<Review> getReview(String id) {
+    public Optional<Review> getReview(@NonNull String id) {
         return reviewRepo.findById(id);
     }
 
     // ---------- Clone ----------
-    public Review cloneReview(String sourceId) {
+    public Review cloneReview(@NonNull String sourceId) {
         Review source = reviewRepo.findById(sourceId).orElseThrow();
         Review copy = Review.builder()
                 .orderId(source.getOrderId() + "-clone")
@@ -334,7 +334,7 @@ public class ReviewService {
     }
 
     // ---------- Copy ----------
-    public Review copyFields(String sourceId, String targetId, List<String> fields) {
+    public Review copyFields(@NonNull String sourceId, @NonNull String targetId, List<String> fields) {
         Review src = reviewRepo.findById(sourceId).orElseThrow();
         Review tgt = reviewRepo.findById(targetId).orElseThrow();
         List<ReviewHistory.Change> changes = new ArrayList<>();
@@ -383,7 +383,7 @@ public class ReviewService {
     }
 
     // ---------- Bulk Ops ----------
-    public List<Review> bulkUpdate(List<String> ids, Map<String, Object> updates) {
+    public List<Review> bulkUpdate(@NonNull List<String> ids, Map<String, Object> updates) {
         List<Review> reviews = reviewRepo.findAllById(ids);
         for (Review r : reviews) {
             if (updates.containsKey("platformId"))
@@ -416,7 +416,7 @@ public class ReviewService {
         return reviewRepo.saveAll(reviews);
     }
 
-    public void bulkDelete(List<String> ids) {
+    public void bulkDelete(@NonNull List<String> ids) {
         reviewRepo.deleteAllById(ids);
         ids.forEach(id -> historyService.logChange(id, "DELETE", "Bulk delete", null));
     }

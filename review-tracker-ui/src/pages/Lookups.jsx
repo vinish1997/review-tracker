@@ -8,25 +8,21 @@ import {
   deleteMediator,
 } from "../api/lookups";
 import Modal from "../components/Modal";
-import { PlusIcon, PencilSquareIcon, TrashIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilSquareIcon, TrashIcon, EllipsisVerticalIcon, PhoneIcon } from "@heroicons/react/24/outline";
 import DropdownPortal from "../components/DropdownPortal";
 import useToast from "../components/useToast";
+import FAB from "../components/FAB";
 
 export default function Lookups() {
   const [tab, setTab] = useState("platforms"); // platforms | mediators
   // Platforms state
   const [pf, setPf] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
-  const [pfName, setPfName] = useState("");
-  const [pfErr, setPfErr] = useState("");
+
 
   // Status lookups removed
 
   // Mediators state
   const [md, setMd] = useState({ items: [], page: 0, size: 10, totalPages: 0, totalElements: 0, sort: "name", dir: "ASC" });
-  const [mdName, setMdName] = useState("");
-  const [mdPhone, setMdPhone] = useState("");
-  const [mdErrName, setMdErrName] = useState("");
-  const [mdErrPhone, setMdErrPhone] = useState("");
   // Edit modals
   const [pfModal, setPfModal] = useState(null); // {id,name}
   const [mdModal, setMdModal] = useState(null); // {id,name,phone}
@@ -63,22 +59,8 @@ export default function Lookups() {
 
   useEffect(() => { loadPlatforms(); loadMediators(); }, [loadPlatforms, loadMediators]);
 
-  const addPlatform = async (e) => {
-    e.preventDefault();
-    if (!pfName.trim()) { setPfErr('Name is required'); return; }
-    try { await savePlatform({ name: pfName }); setPfName(""); setPfErr(""); await loadPlatforms(); toast.show('Platform saved', 'success'); }
-    catch (e) { console.error(e); toast.show('Failed to save platform', 'error'); }
-  };
-  const addMediator = async (e) => {
-    e.preventDefault();
-    let ok = true;
-    setMdErrName(""); setMdErrPhone("");
-    if (!mdName.trim()) { setMdErrName('Name is required'); ok = false; }
-    if (mdPhone && !/^\+?\d{8,15}$/.test(mdPhone)) { setMdErrPhone('Enter valid phone (8-15 digits, optional +)'); ok = false; }
-    if (!ok) return;
-    try { await saveMediator({ name: mdName, phone: mdPhone }); setMdName(""); setMdPhone(""); await loadMediators(); toast.show('Mediator saved', 'success'); }
-    catch (e) { console.error(e); toast.show('Failed to save mediator', 'error'); }
-  };
+
+
 
   // Delete modal
   const [delModal, setDelModal] = useState(null); // {type,id,name}
@@ -110,19 +92,14 @@ export default function Lookups() {
         </div>
 
         {tab === 'platforms' && (
-          <section className="mb-8">
-            <h3 className="text-xl font-semibold mb-2">Platforms</h3>
-            <form onSubmit={addPlatform} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end mb-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
-                <input value={pfName} onChange={(e) => setPfName(e.target.value)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Platform name" />
-              </div>
-              <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md inline-flex items-center gap-2 shadow">
-                <PlusIcon className="w-4 h-4" />
-                <span>Add</span>
+          <section className="mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Platforms</h3>
+              <button onClick={() => setPfModal({})} className="hidden md:inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">
+                <PlusIcon className="w-4 h-4" /> Add Platform
               </button>
-            </form>
-            {pfErr && <div className="text-red-600 text-sm mb-4">{pfErr}</div>}
+            </div>
+
             <LookupTable
               items={pf.items}
               columns={[{ key: 'name', label: 'Name' }]}
@@ -140,24 +117,13 @@ export default function Lookups() {
         {/* Statuses tab removed */}
 
         {tab === 'mediators' && (
-          <section className="mb-8">
-            <h3 className="text-xl font-semibold mb-2">Mediators</h3>
-            <form onSubmit={addMediator} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end mb-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
-                <input value={mdName} onChange={(e) => setMdName(e.target.value)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Mediator name" />
-                {mdErrName && <div className="text-red-600 text-sm">{mdErrName}</div>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Phone</label>
-                <input value={mdPhone} onChange={(e) => setMdPhone(e.target.value)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. 919876543210" />
-                {mdErrPhone && <div className="text-red-600 text-sm">{mdErrPhone}</div>}
-              </div>
-              <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md inline-flex items-center gap-2 shadow">
-                <PlusIcon className="w-4 h-4" />
-                <span>Add</span>
+          <section className="mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Mediators</h3>
+              <button onClick={() => setMdModal({})} className="hidden md:inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">
+                <PlusIcon className="w-4 h-4" /> Add Mediator
               </button>
-            </form>
+            </div>
             <LookupTable
               items={md.items}
               columns={[{ key: 'name', label: 'Name' }, { key: 'phone', label: 'Phone' }]}
@@ -213,6 +179,7 @@ export default function Lookups() {
           }}>Delete</button>
         </div>
       </Modal>
+      <FAB onClick={() => tab === 'platforms' ? setPfModal({}) : setMdModal({})} />
     </div>
   );
 }
@@ -223,7 +190,8 @@ function LookupTable({ items, columns, onEditRow, onDelete, page, size, totalPag
 
   return (
     <div>
-      <table className="w-full border-collapse">
+
+      <table className="hidden md:table w-full border-collapse">
         <thead>
           <tr className="bg-gray-100 text-left">
             {columns.map(c => (
@@ -297,8 +265,39 @@ function LookupTable({ items, columns, onEditRow, onDelete, page, size, totalPag
           {items.length === 0 && (
             <tr><td className="p-4 text-center text-gray-500" colSpan={columns.length + 1}>No items.</td></tr>
           )}
+
         </tbody>
       </table>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {items.map(row => (
+          <div key={row.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center active:bg-gray-50 transition-colors" onClick={() => setOpenRow(prev => prev === row.id ? null : row.id)}>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-gray-900 truncate">{row.name}</div>
+              {row.phone && (
+                <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                  <PhoneIcon className="w-3 h-3" /> {row.phone}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <button onClick={(e) => { e.stopPropagation(); setOpenRow(prev => prev === row.id ? null : row.id); }} className="p-2 -mr-2 text-gray-400">
+                <EllipsisVerticalIcon className="w-5 h-5" />
+              </button>
+              <DropdownPortal open={openRow === row.id} onClose={() => setOpenRow(null)} align="right" className="w-32">
+                <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2" onClick={() => { setOpenRow(null); onEditRow?.(row); }}>
+                  <PencilSquareIcon className="w-4 h-4" /> Edit
+                </button>
+                <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center gap-2" onClick={() => { setOpenRow(null); onDelete(row.id); }}>
+                  <TrashIcon className="w-4 h-4" /> Delete
+                </button>
+              </DropdownPortal>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <div className="text-center py-8 text-gray-500">No items.</div>}
+      </div>
       <div className="flex items-center justify-between mt-3 text-sm text-gray-700">
         <div>Showing page {page + 1} of {Math.max(totalPages, 1)} ({totalElements} items)</div>
         <div className="space-x-2">
